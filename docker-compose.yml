@@ -1,0 +1,351 @@
+services:
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: rms-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus metrics
+      - "13133:13133" # Health check
+      - "55679:55679" # zpages
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Jaeger for trace visualization
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: rms-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # Jaeger HTTP collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # VictoriaMetrics for metrics storage
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: rms-victoriametrics
+    ports:
+      - "8428:8428"   # HTTP API and UI
+    volumes:
+      - victoriametrics-data:/victoria-metrics-data
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--httpListenAddr=:8428"
+      - "--retentionPeriod=30d"
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8428/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rms-grafana
+    ports:
+      - "9030:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus for metrics (optional, use VictoriaMetrics instead)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rms-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - rms-network
+    profiles:
+      - observability
+
+  # Node Exporter for host USE metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: rms-node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # cAdvisor for container USE metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: rms-cadvisor
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  menu:
+    build:
+      context: ./services/menu
+      dockerfile: Dockerfile
+    container_name: rms-menu
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=dev
+      - APP_SECRET=menu_secret_key_change_me
+      - DATABASE_URL=sqlite:///%kernel.project_dir%/var/menu.db
+      - INVENTORY_SERVICE_URL=http://inventory:8002
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - OTEL_SERVICE_NAME=menu-service
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_PROPAGATORS=tracecontext,baggage
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/menu/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  orders:
+    build:
+      context: ./services/orders
+      dockerfile: Dockerfile
+    container_name: rms-orders
+    ports:
+      - "8001:8001"
+    environment:
+      - APP_ENV=dev
+      - APP_SECRET=orders_secret_key_change_me
+      - DATABASE_URL=sqlite:///%kernel.project_dir%/var/orders.db
+      - MENU_SERVICE_URL=http://menu:8000
+      - INVENTORY_SERVICE_URL=http://inventory:8002
+      - BILLING_SERVICE_URL=http://billing:8003
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - OTEL_SERVICE_NAME=orders-service
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_PROPAGATORS=tracecontext,baggage
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+    depends_on:
+      menu:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/v1/orders/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  inventory:
+    build:
+      context: ./services/inventory
+      dockerfile: Dockerfile
+    container_name: rms-inventory
+    ports:
+      - "8002:8002"
+    environment:
+      - APP_ENV=dev
+      - APP_SECRET=inventory_secret_key_change_me
+      - DATABASE_URL=sqlite:///%kernel.project_dir%/var/inventory.db
+      - MENU_SERVICE_URL=http://menu:8000
+      - ORDERS_SERVICE_URL=http://orders:8001
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - OTEL_SERVICE_NAME=inventory-service
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_PROPAGATORS=tracecontext,baggage
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/v1/inventory/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  billing:
+    build:
+      context: ./services/billing
+      dockerfile: Dockerfile
+    container_name: rms-billing
+    ports:
+      - "8003:8003"
+    environment:
+      - APP_ENV=dev
+      - APP_SECRET=billing_secret_key_change_me
+      - DATABASE_URL=sqlite:///%kernel.project_dir%/var/billing.db
+      - ORDERS_SERVICE_URL=http://orders:8001
+      - OTEL_PHP_AUTOLOAD_ENABLED=true
+      - OTEL_SERVICE_NAME=billing-service
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=none
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_PROPAGATORS=tracecontext,baggage
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/v1/billing/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Integration test runner
+  integration-test:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: rms-integration-test
+    environment:
+      - MENU_SERVICE_URL=http://menu:8000
+      - ORDERS_SERVICE_URL=http://orders:8001
+      - INVENTORY_SERVICE_URL=http://inventory:8002
+      - BILLING_SERVICE_URL=http://billing:8003
+    depends_on:
+      - menu
+      - orders
+      - inventory
+      - billing
+    networks:
+      - rms-network
+    profiles:
+      - test
+
+  k6:
+    image: grafana/k6
+    container_name: rms-k6-loadtest
+    volumes:
+      - ./tests:/tests
+    environment:
+      - MENU_URL=http://menu:8000
+      - ORDERS_URL=http://orders:8001
+      - INVENTORY_URL=http://inventory:8002
+      - BILLING_URL=http://billing:8003
+    command: run /tests/smoke-test.js
+    depends_on:
+      menu:
+        condition: service_healthy
+      orders:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+    networks:
+      - rms-network
+    profiles:
+      - loadtest
+
+  k6-full:
+    image: grafana/k6
+    container_name: rms-k6-full-loadtest
+    volumes:
+      - ./tests:/tests
+    environment:
+      - MENU_URL=http://menu:8000
+      - ORDERS_URL=http://orders:8001
+      - INVENTORY_URL=http://inventory:8002
+      - BILLING_URL=http://billing:8003
+    command: run /tests/load-test.js
+    depends_on:
+      menu:
+        condition: service_healthy
+      orders:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+    networks:
+      - rms-network
+    profiles:
+      - loadtest-full
+
+networks:
+  rms-network:
+    driver: bridge
+
+volumes:
+  victoriametrics-data:
+  grafana-data:

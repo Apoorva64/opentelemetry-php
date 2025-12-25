@@ -1,0 +1,97 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus receiver to scrape USE metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'node-exporter'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['node-exporter:9100']
+        - job_name: 'cadvisor'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['cadvisor:8080']
+
+connectors:
+  spanmetrics:
+    namespace: traces_span_metrics
+    histogram:
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
+    dimensions:
+      - name: http.method
+      - name: http.response.status_code
+      - name: http.route
+      - name: peer.service
+      - name: server.address
+      - name: db.system
+    exemplars:
+      enabled: true
+    dimensions_cache_size: 1000
+    aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+    metrics_flush_interval: 15s
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+  
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  debug:
+    verbosity: detailed
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: rms
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  prometheusremotewrite/victoriametrics:
+    endpoint: http://victoriametrics:8428/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true
+    tls:
+      insecure: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlp/jaeger, spanmetrics]
+    
+    metrics:
+      receivers: [otlp, spanmetrics, prometheus]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus, prometheusremotewrite/victoriametrics]
