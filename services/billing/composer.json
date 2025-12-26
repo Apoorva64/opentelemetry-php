@@ -3,10 +3,27 @@
     "license": "proprietary",
     "minimum-stability": "stable",
     "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../clients/InventoryClient"
+        },
+        {
+            "type": "path",
+            "url": "../../clients/MenuClient"
+        },
+        {
+            "type": "path",
+            "url": "../../clients/OrdersClient"
+        }
+    ],
     "require": {
         "php": ">=8.4",
         "ext-ctype": "*",
         "ext-iconv": "*",
+        "otel-php/inventory-client": "@dev",
+        "otel-php/menu-client": "@dev",
+        "otel-php/orders-client": "@dev",
         "doctrine/doctrine-bundle": "^3.2.1",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "zircote/swagger-php": "^4.11.1",
@@ -71,7 +88,18 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
-        ]
+        ],
+        "openapi-gen": "php bin/console app:openapi:export",
+        "generate-client-billing": "docker run --rm -v ${PWD}/../..:/local openapitools/openapi-generator-cli generate -i /local/services/billing/openapi.json -g php-nextgen -o /local/clients/BillingClient --additional-properties=apiPackage=BillingClient,composerPackageName=otel-php/billing-client,invokerPackage=Billing\\Api,packageName=BillingClient",
+        "generate-client-inventory": "docker run --rm -v ${PWD}/../..:/local openapitools/openapi-generator-cli generate -i /local/services/inventory/openapi.json -g php-nextgen -o /local/clients/InventoryClient --additional-properties=apiPackage=InventoryClient,composerPackageName=otel-php/inventory-client,invokerPackage=Inventory\\Api,packageName=InventoryClient",
+        "generate-client-menu": "docker run --rm -v ${PWD}/../..:/local openapitools/openapi-generator-cli generate -i /local/services/menu/openapi.json -g php-nextgen -o /local/clients/MenuClient --additional-properties=apiPackage=MenuClient,composerPackageName=otel-php/menu-client,invokerPackage=Menu\\Api,packageName=MenuClient",
+        "generate-client-orders": "docker run --rm -v ${PWD}/../..:/local openapitools/openapi-generator-cli generate -i /local/services/orders/openapi.json -g php-nextgen -o /local/clients/OrdersClient --additional-properties=apiPackage=OrdersClient,composerPackageName=otel-php/orders-client,invokerPackage=Orders\\Api,packageName=OrdersClient",
+        "generate-all-clients": [
+            "@generate-client-billing",
+            "@generate-client-inventory",
+            "@generate-client-menu",
+            "@generate-client-orders"
+        ]   
     },
     "conflict": {
         "symfony/symfony": "*"

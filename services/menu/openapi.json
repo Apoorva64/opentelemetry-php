@@ -1,0 +1,442 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Menu Service API",
+        "description": "Restaurant menu management service",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Menu Service"
+        }
+    ],
+    "paths": {
+        "/v1/menu/health": {
+            "get": {
+                "summary": "Health check",
+                "description": "Returns the health status of the menu service",
+                "operationId": "getMenuHealth",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        },
+                                        "service": {
+                                            "type": "string",
+                                            "example": "menu"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/menu/items": {
+            "get": {
+                "summary": "List all menu items",
+                "description": "Returns a list of all available menu items",
+                "operationId": "listMenuItems",
+                "responses": {
+                    "200": {
+                        "description": "List of menu items",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/MenuItem"
+                                            }
+                                        },
+                                        "traceId": {
+                                            "type": "string",
+                                            "example": "trace_abc123"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "summary": "Create a menu item",
+                "description": "Creates a new menu item",
+                "operationId": "createMenuItem",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "price"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Margherita Pizza"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Classic tomato and mozzarella"
+                                    },
+                                    "price": {
+                                        "type": "string",
+                                        "example": "12.99"
+                                    },
+                                    "category": {
+                                        "type": "string",
+                                        "example": "main"
+                                    },
+                                    "available": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "ingredients": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Menu item created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MenuItem"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/menu/items/{id}": {
+            "get": {
+                "summary": "Get a menu item",
+                "description": "Returns a single menu item by ID",
+                "operationId": "getMenuItem",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Menu item ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Menu item details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MenuItem"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Menu item not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "ITEM_NOT_FOUND"
+                                                },
+                                                "message": {
+                                                    "type": "string",
+                                                    "example": "Menu item not found"
+                                                },
+                                                "traceId": {
+                                                    "type": "string",
+                                                    "example": "trace_abc123"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "summary": "Update a menu item",
+                "description": "Partially updates an existing menu item",
+                "operationId": "updateMenuItem",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Menu item ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "price": {
+                                        "type": "string"
+                                    },
+                                    "category": {
+                                        "type": "string"
+                                    },
+                                    "available": {
+                                        "type": "boolean"
+                                    },
+                                    "ingredients": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Menu item updated"
+                    },
+                    "404": {
+                        "description": "Menu item not found"
+                    }
+                }
+            }
+        },
+        "/v1/menu/items/{id}/availability": {
+            "post": {
+                "summary": "Update item availability",
+                "description": "Updates availability status of a menu item and reconciles with inventory",
+                "operationId": "updateMenuItemAvailability",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Menu item ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "available"
+                                ],
+                                "properties": {
+                                    "available": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Availability updated"
+                    },
+                    "404": {
+                        "description": "Menu item not found"
+                    }
+                }
+            }
+        },
+        "/v1/menu/validation": {
+            "post": {
+                "summary": "Validate menu items",
+                "description": "Validates a list of menu items for availability and pricing",
+                "operationId": "validateMenuItems",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "items"
+                                ],
+                                "properties": {
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "itemId",
+                                                "qty",
+                                                "unitPrice"
+                                            ],
+                                            "properties": {
+                                                "itemId": {
+                                                    "type": "string",
+                                                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                },
+                                                "qty": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "unitPrice": {
+                                                    "type": "string",
+                                                    "example": "12.99"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Validation result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "valid": {
+                                            "type": "boolean"
+                                        },
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "totalPrice": {
+                                            "type": "string"
+                                        },
+                                        "traceId": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "MenuItem": {
+                "title": "Menu Item",
+                "description": "A menu item available in the restaurant",
+                "required": [
+                    "id",
+                    "name",
+                    "price",
+                    "category",
+                    "available"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Margherita Pizza"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Classic tomato and mozzarella",
+                        "nullable": true
+                    },
+                    "price": {
+                        "type": "string",
+                        "format": "decimal",
+                        "example": "12.99"
+                    },
+                    "category": {
+                        "type": "string",
+                        "example": "main"
+                    },
+                    "available": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "ingredients": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "tomato",
+                            "mozzarella",
+                            "basil"
+                        ],
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": []
+}

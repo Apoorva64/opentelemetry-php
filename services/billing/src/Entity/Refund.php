@@ -6,8 +6,23 @@ use App\Repository\RefundRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: RefundRepository::class)]
+#[OA\Schema(
+    schema: 'Refund',
+    title: 'Refund',
+    description: 'A refund for a captured payment',
+    required: ['id', 'orderId', 'paymentIntentId', 'amount', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'orderId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'paymentIntentId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'amount', type: 'string', format: 'decimal', example: '25.99'),
+        new OA\Property(property: 'status', type: 'string', enum: ['pending', 'completed', 'failed'], example: 'completed'),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z')
+    ]
+)]
 class Refund
 {
     public const STATUS_PENDING = 'pending';

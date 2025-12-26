@@ -6,8 +6,34 @@ use App\Repository\ReservationRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: ReservationRepository::class)]
+#[OA\Schema(
+    schema: 'Reservation',
+    title: 'Inventory Reservation',
+    description: 'A temporary reservation of inventory items for an order',
+    required: ['id', 'orderId', 'items', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'orderId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'itemId', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
+                    new OA\Property(property: 'qty', type: 'integer', example: 2),
+                    new OA\Property(property: 'name', type: 'string', example: 'Margherita Pizza')
+                ],
+                type: 'object'
+            )
+        ),
+        new OA\Property(property: 'status', type: 'string', enum: ['reserved', 'committed', 'released', 'expired'], example: 'reserved'),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z'),
+        new OA\Property(property: 'expiresAt', type: 'string', format: 'date-time', example: '2025-01-01T12:15:00Z')
+    ]
+)]
 class Reservation
 {
     public const STATUS_RESERVED = 'reserved';

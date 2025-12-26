@@ -1,0 +1,430 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Inventory Service API",
+        "description": "Restaurant inventory and stock management",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8002",
+            "description": "Inventory Service"
+        }
+    ],
+    "paths": {
+        "/v1/inventory/health": {
+            "get": {
+                "summary": "Health check",
+                "description": "Returns the health status of the inventory service",
+                "operationId": "getInventoryHealth",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        },
+                                        "service": {
+                                            "type": "string",
+                                            "example": "inventory"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/inventory/reservations": {
+            "post": {
+                "summary": "Create a reservation",
+                "description": "Creates a stock reservation for an order",
+                "operationId": "createReservation",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "orderId",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "idempotencyKey": {
+                                        "type": "string",
+                                        "example": "reservation-123-abc"
+                                    },
+                                    "orderId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "itemId": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                                                },
+                                                "qty": {
+                                                    "type": "integer",
+                                                    "example": 2
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Margherita Pizza"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reservation created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "reservationId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "reserved"
+                                        },
+                                        "expiresAt": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "example": "2025-01-01T12:15:00Z"
+                                        },
+                                        "traceId": {
+                                            "type": "string",
+                                            "example": "trace_abc123"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Insufficient stock",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "INSUFFICIENT_STOCK"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                },
+                                                "details": {
+                                                    "properties": {
+                                                        "itemId": {
+                                                            "type": "string"
+                                                        },
+                                                        "requested": {
+                                                            "type": "integer"
+                                                        },
+                                                        "available": {
+                                                            "type": "integer"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "traceId": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/inventory/reservations/{id}/commit": {
+            "post": {
+                "summary": "Commit a reservation",
+                "description": "Commits a reservation - deducts stock and finalizes",
+                "operationId": "commitReservation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Reservation ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reservation committed"
+                    },
+                    "404": {
+                        "description": "Reservation not found"
+                    },
+                    "409": {
+                        "description": "Invalid reservation state"
+                    }
+                }
+            }
+        },
+        "/v1/inventory/reservations/{id}/release": {
+            "post": {
+                "summary": "Release a reservation",
+                "description": "Releases a reservation - returns reserved stock",
+                "operationId": "releaseReservation",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Reservation ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Reservation released"
+                    },
+                    "404": {
+                        "description": "Reservation not found"
+                    }
+                }
+            }
+        },
+        "/v1/inventory/reconcile": {
+            "post": {
+                "summary": "Reconcile inventory",
+                "description": "Reconciles inventory based on menu item availability changes",
+                "operationId": "reconcileInventory",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "itemId": {
+                                        "type": "string"
+                                    },
+                                    "available": {
+                                        "type": "boolean"
+                                    },
+                                    "ingredients": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Reconciliation complete"
+                    }
+                }
+            }
+        },
+        "/v1/inventory/stock": {
+            "get": {
+                "summary": "List stock",
+                "description": "Lists all stock items",
+                "operationId": "listStock",
+                "responses": {
+                    "200": {
+                        "description": "Stock items list"
+                    }
+                }
+            }
+        },
+        "/v1/inventory/stock/{itemId}": {
+            "put": {
+                "summary": "Update stock",
+                "description": "Updates stock quantity for an item",
+                "operationId": "updateStock",
+                "parameters": [
+                    {
+                        "name": "itemId",
+                        "in": "path",
+                        "description": "Menu item ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "quantity": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "itemName": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Stock updated"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Reservation": {
+                "title": "Inventory Reservation",
+                "description": "A temporary reservation of inventory items for an order",
+                "required": [
+                    "id",
+                    "orderId",
+                    "items",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "itemId": {
+                                    "type": "string",
+                                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                                },
+                                "qty": {
+                                    "type": "integer",
+                                    "example": 2
+                                },
+                                "name": {
+                                    "type": "string",
+                                    "example": "Margherita Pizza"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "reserved",
+                            "committed",
+                            "released",
+                            "expired"
+                        ],
+                        "example": "reserved"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    },
+                    "expiresAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:15:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "Stock": {
+                "title": "Stock",
+                "description": "Inventory stock level for a menu item",
+                "required": [
+                    "id",
+                    "itemId",
+                    "itemName",
+                    "quantity",
+                    "reservedQuantity"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "itemId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "itemName": {
+                        "type": "string",
+                        "example": "Margherita Pizza"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "reservedQuantity": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "availableQuantity": {
+                        "type": "integer",
+                        "example": 95
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": []
+}

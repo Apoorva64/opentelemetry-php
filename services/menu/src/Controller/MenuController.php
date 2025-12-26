@@ -10,8 +10,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use OpenApi\Attributes as OA;
+use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
+use GuzzleHttp\Client as GuzzleClient;
 
 #[OA\Info(
     version: '1.0.0',
@@ -23,15 +24,22 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Menu', description: 'Menu item operations')]
 class MenuController extends AbstractController
 {
+    private InventoryClient $inventoryClient;
+
     public function __construct(
         private EntityManagerInterface $em,
         private MenuItemRepository $menuItemRepository,
-        private HttpClientInterface $httpClient,
-    ) {}
+    ) {
+        $guzzle = new GuzzleClient();
+        $inventoryConfig = new \InventoryApi\Configuration();
+        $inventoryConfig->setHost($_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002');
+        $this->inventoryClient = new InventoryClient($guzzle, $inventoryConfig);
+    }
 
     #[Route('/health', name: 'menu_health', methods: ['GET'])]
     #[OA\Get(
         path: '/v1/menu/health',
+        operationId: 'getMenuHealth',
         summary: 'Health check',
         description: 'Returns the health status of the menu service'
     )]
@@ -39,6 +47,7 @@ class MenuController extends AbstractController
         response: 200,
         description: 'Service is healthy',
         content: new OA\JsonContent(
+            type: 'object',
             properties: [
                 new OA\Property(property: 'status', type: 'string', example: 'ok'),
                 new OA\Property(property: 'service', type: 'string', example: 'menu')
@@ -53,6 +62,7 @@ class MenuController extends AbstractController
     #[Route('/items', name: 'menu_items_list', methods: ['GET'])]
     #[OA\Get(
         path: '/v1/menu/items',
+        operationId: 'listMenuItems',
         summary: 'List all menu items',
         description: 'Returns a list of all available menu items'
     )]
@@ -60,13 +70,14 @@ class MenuController extends AbstractController
         response: 200,
         description: 'List of menu items',
         content: new OA\JsonContent(
+            type: 'object',
             properties: [
                 new OA\Property(
                     property: 'items',
                     type: 'array',
                     items: new OA\Items(ref: '#/components/schemas/MenuItem')
                 ),
-                new OA\Property(property: 'traceId', type: 'string')
+                new OA\Property(property: 'traceId', type: 'string', example: 'trace_abc123')
             ]
         )
     )]
@@ -83,16 +94,40 @@ class MenuController extends AbstractController
     #[Route('/items/{id}', name: 'menu_item_get', methods: ['GET'])]
     #[OA\Get(
         path: '/v1/menu/items/{id}',
+        operationId: 'getMenuItem',
         summary: 'Get a menu item',
         description: 'Returns a single menu item by ID'
     )]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Menu item ID', required: true)]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        description: 'Menu item ID',
+        required: true,
+        schema: new OA\Schema(type: 'string', format: 'uuid')
+    )]
     #[OA\Response(
         response: 200,
         description: 'Menu item details',
         content: new OA\JsonContent(ref: '#/components/schemas/MenuItem')
     )]
-    #[OA\Response(response: 404, description: 'Menu item not found')]
+    #[OA\Response(
+        response: 404,
+        description: 'Menu item not found',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string', example: 'ITEM_NOT_FOUND'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Menu item not found'),
+                        new OA\Property(property: 'traceId', type: 'string', example: 'trace_abc123')
+                    ]
+                )
+            ]
+        )
+    )]
     public function getItem(string $id): JsonResponse
     {
         $item = $this->menuItemRepository->find($id);
@@ -113,6 +148,7 @@ class MenuController extends AbstractController
     #[Route('/items', name: 'menu_item_create', methods: ['POST'])]
     #[OA\Post(
         path: '/v1/menu/items',
+        operationId: 'createMenuItem',
         summary: 'Create a menu item',
         description: 'Creates a new menu item'
     )]
@@ -130,7 +166,11 @@ class MenuController extends AbstractController
             ]
         )
     )]
-    #[OA\Response(response: 201, description: 'Menu item created')]
+    #[OA\Response(
+        response: 201,
+        description: 'Menu item created',
+        content: new OA\JsonContent(ref: '#/components/schemas/MenuItem')
+    )]
     public function createItem(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -152,10 +192,11 @@ class MenuController extends AbstractController
     #[Route('/items/{id}', name: 'menu_item_update', methods: ['PATCH'])]
     #[OA\Patch(
         path: '/v1/menu/items/{id}',
+        operationId: 'updateMenuItem',
         summary: 'Update a menu item',
         description: 'Partially updates an existing menu item'
     )]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Menu item ID', required: true)]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Menu item ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\RequestBody(
         content: new OA\JsonContent(
             properties: [
@@ -202,10 +243,11 @@ class MenuController extends AbstractController
     #[Route('/items/{id}/availability', name: 'menu_item_availability', methods: ['POST'])]
     #[OA\Post(
         path: '/v1/menu/items/{id}/availability',
+        operationId: 'updateMenuItemAvailability',
         summary: 'Update item availability',
         description: 'Updates availability status of a menu item and reconciles with inventory'
     )]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Menu item ID', required: true)]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Menu item ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
@@ -240,14 +282,12 @@ class MenuController extends AbstractController
         
         // Call InventoryService to reconcile availability
         try {
-            $inventoryUrl = $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002';
-            $this->httpClient->request('POST', "{$inventoryUrl}/v1/inventory/reconcile", [
-                'json' => [
-                    'itemId' => $id,
-                    'available' => $available,
-                    'ingredients' => $item->getIngredients(),
-                ],
-            ]);
+            $reconcileRequest = new \InventoryApi\Model\ReconcileInventoryRequest();
+            $reconcileRequest->setItemId($id);
+            $reconcileRequest->setAvailable($available);
+            $reconcileRequest->setIngredients($item->getIngredients());
+            
+            $this->inventoryClient->reconcileInventory($reconcileRequest);
         } catch (\Throwable $e) {
             // Log but don't fail the request
         }
@@ -262,6 +302,7 @@ class MenuController extends AbstractController
     #[Route('/validation', name: 'menu_validation', methods: ['POST'])]
     #[OA\Post(
         path: '/v1/menu/validation',
+        operationId: 'validateMenuItems',
         summary: 'Validate menu items',
         description: 'Validates a list of menu items for availability and pricing'
     )]
@@ -274,9 +315,12 @@ class MenuController extends AbstractController
                     property: 'items',
                     type: 'array',
                     items: new OA\Items(
+                        type: 'object',
+                        required: ['itemId', 'qty', 'unitPrice'],
                         properties: [
-                            new OA\Property(property: 'itemId', type: 'string'),
-                            new OA\Property(property: 'quantity', type: 'integer')
+                            new OA\Property(property: 'itemId', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
+                            new OA\Property(property: 'qty', type: 'integer', example: 2),
+                            new OA\Property(property: 'unitPrice', type: 'string', example: '12.99')
                         ]
                     )
                 )

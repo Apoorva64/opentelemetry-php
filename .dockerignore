@@ -1,0 +1,41 @@
+# Ignore vendor directories (they contain symlinks that Docker can't handle)
+services/*/vendor/
+services/*/var/
+services/*/node_modules/
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore documentation
+docs/
+*.md
+README.md
+
+# Ignore test files
+tests/
+
+# Ignore docker files
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore observability configs (not needed in service images)
+otel-collector-config.yaml
+prometheus.yml
+grafana/

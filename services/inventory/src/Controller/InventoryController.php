@@ -12,8 +12,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use OpenApi\Attributes as OA;
+use MenuApi\MenuClient\DefaultApi as MenuClient;
+use GuzzleHttp\Client as GuzzleClient;
 
 #[OA\Info(
     version: '1.0.0',
@@ -25,42 +26,111 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Inventory', description: 'Inventory and stock management')]
 class InventoryController extends AbstractController
 {
+    private MenuClient $menuClient;
+
     public function __construct(
         private EntityManagerInterface $em,
         private ReservationRepository $reservationRepository,
         private StockRepository $stockRepository,
-        private HttpClientInterface $httpClient,
-    ) {}
+    ) {
+        $guzzle = new GuzzleClient();
+        $menuConfig = new \MenuApi\Configuration();
+        $menuConfig->setHost($_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000');
+        $this->menuClient = new MenuClient($guzzle, $menuConfig);
+    }
 
     #[Route('/health', name: 'inventory_health', methods: ['GET'])]
-    #[OA\Get(path: '/v1/inventory/health', summary: 'Health check', description: 'Returns the health status of the inventory service')]
-    #[OA\Response(response: 200, description: 'Service is healthy')]
+    #[OA\Get(
+        path: '/v1/inventory/health',
+        operationId: 'getInventoryHealth',
+        summary: 'Health check',
+        description: 'Returns the health status of the inventory service'
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Service is healthy',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'status', type: 'string', example: 'ok'),
+                new OA\Property(property: 'service', type: 'string', example: 'inventory')
+            ]
+        )
+    )]
     public function health(): JsonResponse
     {
         return $this->json(['status' => 'ok', 'service' => 'inventory']);
     }
 
     #[Route('/reservations', name: 'inventory_reserve', methods: ['POST'])]
-    #[OA\Post(path: '/v1/inventory/reservations', summary: 'Create a reservation', description: 'Creates a stock reservation for an order')]
+    #[OA\Post(
+        path: '/v1/inventory/reservations',
+        operationId: 'createReservation',
+        summary: 'Create a reservation',
+        description: 'Creates a stock reservation for an order'
+    )]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
             required: ['orderId', 'items'],
             properties: [
-                new OA\Property(property: 'idempotencyKey', type: 'string'),
-                new OA\Property(property: 'orderId', type: 'string'),
-                new OA\Property(property: 'items', type: 'array', items: new OA\Items(
-                    properties: [
-                        new OA\Property(property: 'itemId', type: 'string'),
-                        new OA\Property(property: 'qty', type: 'integer'),
-                        new OA\Property(property: 'name', type: 'string')
-                    ]
-                ))
+                new OA\Property(property: 'idempotencyKey', type: 'string', example: 'reservation-123-abc'),
+                new OA\Property(property: 'orderId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                new OA\Property(
+                    property: 'items',
+                    type: 'array',
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: 'itemId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                            new OA\Property(property: 'qty', type: 'integer', example: 2),
+                            new OA\Property(property: 'name', type: 'string', example: 'Margherita Pizza')
+                        ],
+                        type: 'object'
+                    )
+                )
             ]
         )
     )]
-    #[OA\Response(response: 201, description: 'Reservation created')]
-    #[OA\Response(response: 409, description: 'Insufficient stock')]
+    #[OA\Response(
+        response: 201,
+        description: 'Reservation created',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'reservationId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                new OA\Property(property: 'status', type: 'string', example: 'reserved'),
+                new OA\Property(property: 'expiresAt', type: 'string', format: 'date-time', example: '2025-01-01T12:15:00Z'),
+                new OA\Property(property: 'traceId', type: 'string', example: 'trace_abc123')
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 409,
+        description: 'Insufficient stock',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string', example: 'INSUFFICIENT_STOCK'),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(
+                            property: 'details',
+                            type: 'object',
+                            properties: [
+                                new OA\Property(property: 'itemId', type: 'string'),
+                                new OA\Property(property: 'requested', type: 'integer'),
+                                new OA\Property(property: 'available', type: 'integer')
+                            ]
+                        ),
+                        new OA\Property(property: 'traceId', type: 'string')
+                    ]
+                )
+            ]
+        )
+    )]
     public function createReservation(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -152,8 +222,8 @@ class InventoryController extends AbstractController
     }
 
     #[Route('/reservations/{id}/commit', name: 'inventory_commit', methods: ['POST'])]
-    #[OA\Post(path: '/v1/inventory/reservations/{id}/commit', summary: 'Commit a reservation', description: 'Commits a reservation - deducts stock and finalizes')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Reservation ID', required: true)]
+    #[OA\Post(path: '/v1/inventory/reservations/{id}/commit', operationId: 'commitReservation', summary: 'Commit a reservation', description: 'Commits a reservation - deducts stock and finalizes')]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Reservation ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Reservation committed')]
     #[OA\Response(response: 404, description: 'Reservation not found')]
     #[OA\Response(response: 409, description: 'Invalid reservation state')]
@@ -214,8 +284,8 @@ class InventoryController extends AbstractController
     }
 
     #[Route('/reservations/{id}/release', name: 'inventory_release', methods: ['POST'])]
-    #[OA\Post(path: '/v1/inventory/reservations/{id}/release', summary: 'Release a reservation', description: 'Releases a reservation - returns reserved stock')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Reservation ID', required: true)]
+    #[OA\Post(path: '/v1/inventory/reservations/{id}/release', operationId: 'releaseReservation', summary: 'Release a reservation', description: 'Releases a reservation - returns reserved stock')]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Reservation ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Reservation released')]
     #[OA\Response(response: 404, description: 'Reservation not found')]
     public function releaseReservation(string $id): JsonResponse
@@ -272,7 +342,7 @@ class InventoryController extends AbstractController
     }
 
     #[Route('/reconcile', name: 'inventory_reconcile', methods: ['POST'])]
-    #[OA\Post(path: '/v1/inventory/reconcile', summary: 'Reconcile inventory', description: 'Reconciles inventory based on menu item availability changes')]
+    #[OA\Post(path: '/v1/inventory/reconcile', operationId: 'reconcileInventory', summary: 'Reconcile inventory', description: 'Reconciles inventory based on menu item availability changes')]
     #[OA\RequestBody(
         content: new OA\JsonContent(
             properties: [
@@ -319,7 +389,7 @@ class InventoryController extends AbstractController
     }
 
     #[Route('/stock', name: 'inventory_stock_list', methods: ['GET'])]
-    #[OA\Get(path: '/v1/inventory/stock', summary: 'List stock', description: 'Lists all stock items')]
+    #[OA\Get(path: '/v1/inventory/stock', operationId: 'listStock', summary: 'List stock', description: 'Lists all stock items')]
     #[OA\Response(response: 200, description: 'Stock items list')]
     public function listStock(): JsonResponse
     {
@@ -340,8 +410,8 @@ class InventoryController extends AbstractController
     }
 
     #[Route('/stock/{itemId}', name: 'inventory_stock_update', methods: ['PUT'])]
-    #[OA\Put(path: '/v1/inventory/stock/{itemId}', summary: 'Update stock', description: 'Updates stock quantity for an item')]
-    #[OA\Parameter(name: 'itemId', in: 'path', description: 'Menu item ID', required: true)]
+    #[OA\Put(path: '/v1/inventory/stock/{itemId}', operationId: 'updateStock', summary: 'Update stock', description: 'Updates stock quantity for an item')]
+    #[OA\Parameter(name: 'itemId', in: 'path', description: 'Menu item ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\RequestBody(
         content: new OA\JsonContent(
             properties: [
@@ -376,12 +446,12 @@ class InventoryController extends AbstractController
         
         // Optionally notify MenuService about availability
         $available = $stock->getAvailableQuantity() > 0;
-        $menuUrl = $_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000';
         
         try {
-            $this->httpClient->request('POST', "{$menuUrl}/v1/menu/items/{$itemId}/availability", [
-                'json' => ['available' => $available],
-            ]);
+            $availabilityRequest = new \MenuApi\Model\UpdateMenuItemAvailabilityRequest();
+            $availabilityRequest->setAvailable($available);
+            
+            $this->menuClient->updateMenuItemAvailability($itemId, $availabilityRequest);
         } catch (\Throwable $e) {
             // Log but don't fail
         }

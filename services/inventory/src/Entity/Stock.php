@@ -6,8 +6,24 @@ use App\Repository\StockRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: StockRepository::class)]
+#[OA\Schema(
+    schema: 'Stock',
+    title: 'Stock',
+    description: 'Inventory stock level for a menu item',
+    required: ['id', 'itemId', 'itemName', 'quantity', 'reservedQuantity'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'itemId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'itemName', type: 'string', example: 'Margherita Pizza'),
+        new OA\Property(property: 'quantity', type: 'integer', example: 100),
+        new OA\Property(property: 'reservedQuantity', type: 'integer', example: 5),
+        new OA\Property(property: 'availableQuantity', type: 'integer', example: 95),
+        new OA\Property(property: 'updatedAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z')
+    ]
+)]
 class Stock
 {
     #[ORM\Id]

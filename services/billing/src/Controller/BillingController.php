@@ -12,8 +12,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use OpenApi\Attributes as OA;
+use OrdersApi\OrdersClient\DefaultApi as OrdersClient;
+use GuzzleHttp\Client as GuzzleClient;
 
 #[OA\Info(
     version: '1.0.0',
@@ -25,36 +26,74 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Billing', description: 'Payment processing and refunds')]
 class BillingController extends AbstractController
 {
+    private OrdersClient $ordersClient;
+
     public function __construct(
         private EntityManagerInterface $em,
         private PaymentIntentRepository $paymentIntentRepository,
         private RefundRepository $refundRepository,
-        private HttpClientInterface $httpClient,
-    ) {}
+    ) {
+        $guzzle = new GuzzleClient();
+        $ordersConfig = new \OrdersApi\Configuration();
+        $ordersConfig->setHost($_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001');
+        $this->ordersClient = new OrdersClient($guzzle, $ordersConfig);
+    }
 
     #[Route('/health', name: 'billing_health', methods: ['GET'])]
-    #[OA\Get(path: '/v1/billing/health', summary: 'Health check', description: 'Returns the health status of the billing service')]
-    #[OA\Response(response: 200, description: 'Service is healthy')]
+    #[OA\Get(
+        path: '/v1/billing/health',
+        operationId: 'getBillingHealth',
+        summary: 'Health check',
+        description: 'Returns the health status of the billing service'
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Service is healthy',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'status', type: 'string', example: 'ok'),
+                new OA\Property(property: 'service', type: 'string', example: 'billing')
+            ]
+        )
+    )]
     public function health(): JsonResponse
     {
         return $this->json(['status' => 'ok', 'service' => 'billing']);
     }
 
     #[Route('/payment-intents', name: 'billing_create_intent', methods: ['POST'])]
-    #[OA\Post(path: '/v1/billing/payment-intents', summary: 'Create payment intent', description: 'Creates a new payment intent for an order')]
+    #[OA\Post(
+        path: '/v1/billing/payment-intents',
+        operationId: 'createPaymentIntent',
+        summary: 'Create payment intent',
+        description: 'Creates a new payment intent for an order'
+    )]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
             required: ['orderId', 'amount'],
             properties: [
-                new OA\Property(property: 'idempotencyKey', type: 'string'),
-                new OA\Property(property: 'orderId', type: 'string', example: 'order-123'),
-                new OA\Property(property: 'amount', type: 'number', example: 25.99),
+                new OA\Property(property: 'idempotencyKey', type: 'string', example: 'payment-123-abc'),
+                new OA\Property(property: 'orderId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                new OA\Property(property: 'amount', type: 'number', format: 'float', example: 25.99),
                 new OA\Property(property: 'currency', type: 'string', example: 'USD')
             ]
         )
     )]
-    #[OA\Response(response: 201, description: 'Payment intent created')]
+    #[OA\Response(
+        response: 201,
+        description: 'Payment intent created',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'paymentIntentId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                new OA\Property(property: 'status', type: 'string', example: 'requires_payment_method'),
+                new OA\Property(property: 'clientSecret', type: 'string', example: 'secret_abc123'),
+                new OA\Property(property: 'traceId', type: 'string', example: 'trace_abc123')
+            ]
+        )
+    )]
     public function createPaymentIntent(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -97,10 +136,42 @@ class BillingController extends AbstractController
     }
 
     #[Route('/payment-intents/{id}', name: 'billing_get_intent', methods: ['GET'])]
-    #[OA\Get(path: '/v1/billing/payment-intents/{id}', summary: 'Get payment intent', description: 'Retrieves payment intent details')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Payment intent ID', required: true)]
-    #[OA\Response(response: 200, description: 'Payment intent found')]
-    #[OA\Response(response: 404, description: 'Payment intent not found')]
+    #[OA\Get(
+        path: '/v1/billing/payment-intents/{id}',
+        operationId: 'getPaymentIntent',
+        summary: 'Get payment intent',
+        description: 'Retrieves payment intent details'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        description: 'Payment intent ID',
+        required: true,
+        schema: new OA\Schema(type: 'string', format: 'uuid')
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Payment intent found',
+        content: new OA\JsonContent(ref: '#/components/schemas/PaymentIntent')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Payment intent not found',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string', example: 'PAYMENT_INTENT_NOT_FOUND'),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(property: 'traceId', type: 'string')
+                    ]
+                )
+            ]
+        )
+    )]
     public function getPaymentIntent(string $id): JsonResponse
     {
         $paymentIntent = $this->paymentIntentRepository->find($id);
@@ -128,8 +199,8 @@ class BillingController extends AbstractController
     }
 
     #[Route('/payments/{paymentId}/capture', name: 'billing_capture', methods: ['POST'])]
-    #[OA\Post(path: '/v1/billing/payments/{paymentId}/capture', summary: 'Capture payment', description: 'Captures a payment and notifies the order service')]
-    #[OA\Parameter(name: 'paymentId', in: 'path', description: 'Payment intent ID', required: true)]
+    #[OA\Post(path: '/v1/billing/payments/{paymentId}/capture', operationId: 'capturePayment', summary: 'Capture payment', description: 'Captures a payment and notifies the order service')]
+    #[OA\Parameter(name: 'paymentId', in: 'path', description: 'Payment intent ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Payment captured')]
     #[OA\Response(response: 404, description: 'Payment intent not found')]
     public function capturePayment(string $paymentId): JsonResponse
@@ -161,15 +232,8 @@ class BillingController extends AbstractController
         $this->em->flush();
         
         // Call OrderService webhook to notify payment captured
-        $ordersUrl = $_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001';
         try {
-            $this->httpClient->request('POST', "{$ordersUrl}/v1/orders/{$paymentIntent->getOrderId()}/events/payment-captured", [
-                'json' => [
-                    'paymentIntentId' => $paymentIntent->getId(),
-                    'amount' => $paymentIntent->getAmount(),
-                    'currency' => $paymentIntent->getCurrency(),
-                ],
-            ]);
+            $this->ordersClient->orderPaymentCaptured($paymentIntent->getOrderId());
         } catch (\Throwable $e) {
             // Log but don't fail - payment is already captured
         }
@@ -182,7 +246,7 @@ class BillingController extends AbstractController
     }
 
     #[Route('/refunds', name: 'billing_refund', methods: ['POST'])]
-    #[OA\Post(path: '/v1/billing/refunds', summary: 'Create refund', description: 'Creates a refund for a captured payment')]
+    #[OA\Post(path: '/v1/billing/refunds', operationId: 'createRefund', summary: 'Create refund', description: 'Creates a refund for a captured payment')]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
@@ -244,15 +308,8 @@ class BillingController extends AbstractController
         $this->em->flush();
         
         // Call OrderService webhook to notify refund
-        $ordersUrl = $_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001';
         try {
-            $this->httpClient->request('POST', "{$ordersUrl}/v1/orders/{$orderId}/events/refunded", [
-                'json' => [
-                    'refundId' => $refund->getId(),
-                    'paymentIntentId' => $paymentIntentId,
-                    'amount' => $refund->getAmount(),
-                ],
-            ]);
+            $this->ordersClient->orderRefunded($orderId);
         } catch (\Throwable $e) {
             // Log but don't fail
         }

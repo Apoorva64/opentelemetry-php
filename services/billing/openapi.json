@@ -1,0 +1,359 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Billing Service API",
+        "description": "Restaurant payment processing and refunds",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8003",
+            "description": "Billing Service"
+        }
+    ],
+    "paths": {
+        "/v1/billing/health": {
+            "get": {
+                "summary": "Health check",
+                "description": "Returns the health status of the billing service",
+                "operationId": "getBillingHealth",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        },
+                                        "service": {
+                                            "type": "string",
+                                            "example": "billing"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/billing/payment-intents": {
+            "post": {
+                "summary": "Create payment intent",
+                "description": "Creates a new payment intent for an order",
+                "operationId": "createPaymentIntent",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "orderId",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "idempotencyKey": {
+                                        "type": "string",
+                                        "example": "payment-123-abc"
+                                    },
+                                    "orderId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 25.99
+                                    },
+                                    "currency": {
+                                        "type": "string",
+                                        "example": "USD"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Payment intent created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "paymentIntentId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "550e8400-e29b-41d4-a716-446655440000"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "requires_payment_method"
+                                        },
+                                        "clientSecret": {
+                                            "type": "string",
+                                            "example": "secret_abc123"
+                                        },
+                                        "traceId": {
+                                            "type": "string",
+                                            "example": "trace_abc123"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/billing/payment-intents/{id}": {
+            "get": {
+                "summary": "Get payment intent",
+                "description": "Retrieves payment intent details",
+                "operationId": "getPaymentIntent",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Payment intent ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment intent found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentIntent"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Payment intent not found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "PAYMENT_INTENT_NOT_FOUND"
+                                                },
+                                                "message": {
+                                                    "type": "string"
+                                                },
+                                                "traceId": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/billing/payments/{paymentId}/capture": {
+            "post": {
+                "summary": "Capture payment",
+                "description": "Captures a payment and notifies the order service",
+                "operationId": "capturePayment",
+                "parameters": [
+                    {
+                        "name": "paymentId",
+                        "in": "path",
+                        "description": "Payment intent ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Payment captured"
+                    },
+                    "404": {
+                        "description": "Payment intent not found"
+                    }
+                }
+            }
+        },
+        "/v1/billing/refunds": {
+            "post": {
+                "summary": "Create refund",
+                "description": "Creates a refund for a captured payment",
+                "operationId": "createRefund",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "orderId",
+                                    "paymentIntentId",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "orderId": {
+                                        "type": "string"
+                                    },
+                                    "paymentIntentId": {
+                                        "type": "string"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "example": 25.99
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Refund created"
+                    },
+                    "400": {
+                        "description": "Cannot refund - invalid payment status"
+                    },
+                    "404": {
+                        "description": "Payment intent not found"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "PaymentIntent": {
+                "title": "Payment Intent",
+                "description": "A payment intent for processing order payments",
+                "required": [
+                    "id",
+                    "orderId",
+                    "amount",
+                    "currency",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "example": "25.99"
+                    },
+                    "currency": {
+                        "type": "string",
+                        "example": "USD"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "requires_payment_method",
+                            "processing",
+                            "captured",
+                            "refunded",
+                            "failed"
+                        ],
+                        "example": "captured"
+                    },
+                    "clientSecret": {
+                        "type": "string",
+                        "example": "secret_abc123",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "Refund": {
+                "title": "Refund",
+                "description": "A refund for a captured payment",
+                "required": [
+                    "id",
+                    "orderId",
+                    "paymentIntentId",
+                    "amount",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "orderId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "paymentIntentId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "example": "25.99"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "completed",
+                            "failed"
+                        ],
+                        "example": "completed"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-01-01T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "tags": []
+}

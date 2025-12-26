@@ -13,10 +13,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
-COPY composer.json composer.lock ./
+COPY services/billing/composer.json services/billing/composer.lock ./
+COPY clients/ ../clients/
 RUN composer install --no-dev --no-scripts --no-autoloader
 
-COPY . .
+COPY services/billing/ .
 RUN composer dump-autoload --optimize
 
 RUN mkdir -p var && chmod -R 777 var

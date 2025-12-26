@@ -6,8 +6,26 @@ use App\Repository\MenuItemRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: MenuItemRepository::class)]
+#[OA\Schema(
+    schema: 'MenuItem',
+    title: 'Menu Item',
+    description: 'A menu item available in the restaurant',
+    required: ['id', 'name', 'price', 'category', 'available'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'name', type: 'string', example: 'Margherita Pizza'),
+        new OA\Property(property: 'description', type: 'string', nullable: true, example: 'Classic tomato and mozzarella'),
+        new OA\Property(property: 'price', type: 'string', format: 'decimal', example: '12.99'),
+        new OA\Property(property: 'category', type: 'string', example: 'main'),
+        new OA\Property(property: 'available', type: 'boolean', example: true),
+        new OA\Property(property: 'ingredients', type: 'array', items: new OA\Items(type: 'string'), nullable: true, example: ['tomato', 'mozzarella', 'basil']),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z'),
+        new OA\Property(property: 'updatedAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z')
+    ]
+)]
 class MenuItem
 {
     #[ORM\Id]

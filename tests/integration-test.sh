@@ -214,8 +214,8 @@ if echo "$ORDER_RESPONSE" | grep -q "orderId"; then
         assert_status "$CAPTURE_RESPONSE" "captured" "Payment captured successfully"
         
         # Give webhook time to process
-        log "Waiting 1s for webhook to process"
-        sleep 1
+        log "Waiting 4s for webhook to process"
+        sleep 4
         
         echo ""
         echo -e "${YELLOW}[8/8] Verifying Final Order Status${NC}"

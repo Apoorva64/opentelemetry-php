@@ -142,8 +142,8 @@ services:
 
   menu:
     build:
-      context: ./services/menu
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./services/menu/Dockerfile
     container_name: rms-menu
     ports:
       - "8000:8000"
@@ -172,8 +172,8 @@ services:
 
   orders:
     build:
-      context: ./services/orders
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./services/orders/Dockerfile
     container_name: rms-orders
     ports:
       - "8001:8001"
@@ -211,8 +211,8 @@ services:
 
   inventory:
     build:
-      context: ./services/inventory
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./services/inventory/Dockerfile
     container_name: rms-inventory
     ports:
       - "8002:8002"
@@ -242,8 +242,8 @@ services:
 
   billing:
     build:
-      context: ./services/billing
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./services/billing/Dockerfile
     container_name: rms-billing
     ports:
       - "8003:8003"

@@ -47,19 +47,3 @@ class ExportOpenApiCommand extends Command
         return Command::SUCCESS;
     }
 }
-                    json_decode($spec->toJson(), true),
-                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-                );
-            }
-
-            file_put_contents($outputFile, $content);
-            
-            $io->success("OpenAPI specification exported to: {$outputFile}");
-            
-            return Command::SUCCESS;
-        } catch (\Throwable $e) {
-            $io->error("Failed to generate OpenAPI spec: " . $e->getMessage());
-            return Command::FAILURE;
-        }
-    }
-}

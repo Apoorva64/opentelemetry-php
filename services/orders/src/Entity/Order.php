@@ -6,9 +6,39 @@ use App\Repository\OrderRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: OrderRepository::class)]
 #[ORM\Table(name: '`order`')]
+#[OA\Schema(
+    schema: 'Order',
+    title: 'Order',
+    description: 'A customer order with items, payment, and fulfillment details',
+    required: ['id', 'customerId', 'items', 'totalAmount', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'customerId', type: 'string', example: 'customer-123'),
+        new OA\Property(property: 'customerName', type: 'string', nullable: true, example: 'John Doe'),
+        new OA\Property(
+            property: 'items',
+            type: 'array',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'itemId', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
+                    new OA\Property(property: 'qty', type: 'integer', example: 2),
+                    new OA\Property(property: 'unitPrice', type: 'number', format: 'float', example: 12.99)
+                ],
+                type: 'object'
+            )
+        ),
+        new OA\Property(property: 'totalAmount', type: 'string', format: 'decimal', example: '25.98'),
+        new OA\Property(property: 'status', type: 'string', enum: ['validating', 'reserved', 'paid', 'canceled', 'completed'], example: 'paid'),
+        new OA\Property(property: 'reservationId', type: 'string', format: 'uuid', nullable: true, example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'paymentIntentId', type: 'string', format: 'uuid', nullable: true, example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z'),
+        new OA\Property(property: 'updatedAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z')
+    ]
+)]
 class Order
 {
     public const STATUS_VALIDATING = 'validating';

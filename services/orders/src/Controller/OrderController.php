@@ -10,8 +10,11 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use OpenApi\Attributes as OA;
+use BillingApi\BillingClient\DefaultApi as BillingClient;
+use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
+use MenuApi\MenuClient\DefaultApi as MenuClient;
+use GuzzleHttp\Client as GuzzleClient;
 
 #[OA\Info(
     version: '1.0.0',
@@ -23,45 +26,130 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Orders', description: 'Order management and workflow orchestration')]
 class OrderController extends AbstractController
 {
+    private BillingClient $billingClient;
+    private InventoryClient $inventoryClient;
+    private MenuClient $menuClient;
+
     public function __construct(
         private EntityManagerInterface $em,
         private OrderRepository $orderRepository,
-        private HttpClientInterface $httpClient,
-    ) {}
+    ) {
+        $guzzle = new GuzzleClient();
+        
+        $billingConfig = new \BillingApi\Configuration();
+        $billingConfig->setHost($_ENV['BILLING_SERVICE_URL'] ?? 'http://localhost:8003');
+        $this->billingClient = new BillingClient($guzzle, $billingConfig);
+        
+        $inventoryConfig = new \InventoryApi\Configuration();
+        $inventoryConfig->setHost($_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002');
+        $this->inventoryClient = new InventoryClient($guzzle, $inventoryConfig);
+        
+        $menuConfig = new \MenuApi\Configuration();
+        $menuConfig->setHost($_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000');
+        $this->menuClient = new MenuClient($guzzle, $menuConfig);
+    }
 
     #[Route('/health', name: 'orders_health', methods: ['GET'])]
-    #[OA\Get(path: '/v1/orders/health', summary: 'Health check', description: 'Returns the health status of the orders service')]
-    #[OA\Response(response: 200, description: 'Service is healthy')]
+    #[OA\Get(
+        path: '/v1/orders/health',
+        operationId: 'getOrdersHealth',
+        summary: 'Health check',
+        description: 'Returns the health status of the orders service'
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Service is healthy',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(property: 'status', type: 'string', example: 'ok'),
+                new OA\Property(property: 'service', type: 'string', example: 'orders')
+            ]
+        )
+    )]
     public function health(): JsonResponse
     {
         return $this->json(['status' => 'ok', 'service' => 'orders']);
     }
 
     #[Route('', name: 'order_create', methods: ['POST'])]
-    #[OA\Post(path: '/v1/orders', summary: 'Create an order', description: 'Creates a new order, validates with menu service, reserves inventory, and creates payment intent')]
+    #[OA\Post(
+        path: '/v1/orders',
+        operationId: 'createOrder',
+        summary: 'Create an order',
+        description: 'Creates a new order, validates with menu service, reserves inventory, and creates payment intent'
+    )]
     #[OA\RequestBody(
         required: true,
         content: new OA\JsonContent(
             required: ['customer', 'items'],
             properties: [
                 new OA\Property(property: 'idempotencyKey', type: 'string', example: 'order-123-abc'),
-                new OA\Property(property: 'customer', type: 'object', properties: [
-                    new OA\Property(property: 'id', type: 'string'),
-                    new OA\Property(property: 'name', type: 'string')
-                ]),
-                new OA\Property(property: 'items', type: 'array', items: new OA\Items(
+                new OA\Property(
+                    property: 'customer',
+                    type: 'object',
                     properties: [
-                        new OA\Property(property: 'itemId', type: 'string'),
-                        new OA\Property(property: 'qty', type: 'integer'),
-                        new OA\Property(property: 'unitPrice', type: 'number')
+                        new OA\Property(property: 'id', type: 'string', example: 'customer-123'),
+                        new OA\Property(property: 'name', type: 'string', example: 'John Doe')
                     ]
-                ))
+                ),
+                new OA\Property(
+                    property: 'items',
+                    type: 'array',
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: 'itemId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+                            new OA\Property(property: 'qty', type: 'integer', example: 2),
+                            new OA\Property(property: 'unitPrice', type: 'number', format: 'float', example: 12.99)
+                        ],
+                        type: 'object'
+                    )
+                )
             ]
         )
     )]
-    #[OA\Response(response: 201, description: 'Order created')]
-    #[OA\Response(response: 400, description: 'Menu validation failed')]
-    #[OA\Response(response: 503, description: 'Service unavailable')]
+    #[OA\Response(
+        response: 201,
+        description: 'Order created',
+        content: new OA\JsonContent(ref: '#/components/schemas/Order')
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Menu validation failed',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string', example: 'MENU_VALIDATION_FAILED'),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(property: 'details', type: 'array', items: new OA\Items(type: 'object')),
+                        new OA\Property(property: 'traceId', type: 'string')
+                    ]
+                )
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 503,
+        description: 'Service unavailable',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string'),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(property: 'traceId', type: 'string')
+                    ]
+                )
+            ]
+        )
+    )]
     public function createOrder(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -80,22 +168,24 @@ class OrderController extends AbstractController
         $items = $data['items'] ?? [];
         
         // Step 1: Validate items with MenuService
-        $menuUrl = $_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000';
         try {
-            $validationResponse = $this->httpClient->request('POST', "{$menuUrl}/v1/menu/validation", [
-                'json' => [
-                    'items' => $items,
-                    'idempotencyKey' => $idempotencyKey . '_validation',
-                ],
-            ]);
-            $validationData = $validationResponse->toArray();
+            $validateRequest = new \MenuApi\Model\ValidateMenuItemsRequest();
+            $validateRequest->setItems(array_map(function($item) {
+                $itemRequest = new \MenuApi\Model\ValidateMenuItemsRequestItemsInner();
+                $itemRequest->setItemId($item['itemId'] ?? '');
+                $itemRequest->setQty($item['qty'] ?? 1);
+                $itemRequest->setUnitPrice($item['unitPrice'] ?? 0);
+                return $itemRequest;
+            }, $items));
             
-            if (!($validationData['valid'] ?? false)) {
+            $validationResponse = $this->menuClient->validateMenuItems($validateRequest);
+            
+            if (!$validationResponse->getValid()) {
                 return $this->json([
                     'error' => [
                         'code' => 'MENU_VALIDATION_FAILED',
                         'message' => 'One or more items failed validation',
-                        'details' => $validationData['validatedItems'] ?? [],
+                        'details' => $validationResponse-> getItems(),
                         'traceId' => $traceId,
                     ]
                 ], Response::HTTP_BAD_REQUEST);
@@ -129,18 +219,21 @@ class OrderController extends AbstractController
         $this->em->flush();
         
         // Step 2: Reserve inventory
-        $inventoryUrl = $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002';
         try {
-            $reservationResponse = $this->httpClient->request('POST', "{$inventoryUrl}/v1/inventory/reservations", [
-                'json' => [
-                    'orderId' => $order->getId(),
-                    'items' => $items,
-                    'idempotencyKey' => $idempotencyKey . '_reservation',
-                ],
-            ]);
-            $reservationData = $reservationResponse->toArray();
+            $reservationRequest = new \InventoryApi\Model\CreateReservationRequest();
+            $reservationRequest->setOrderId($order->getId());
+            $reservationRequest->setItems(array_map(function($item) {
+                $itemReq = new \InventoryApi\Model\CreateReservationRequestItemsInner();
+                $itemReq->setItemId($item['itemId'] ?? '');
+                $itemReq->setQty($item['qty'] ?? 1);
+                $itemReq->setName($item['name'] ?? '');
+                return $itemReq;
+            }, $items));
+            $reservationRequest->setIdempotencyKey($idempotencyKey . '_reservation');
             
-            $order->setReservationId($reservationData['reservationId'] ?? null);
+            $reservationResponse = $this->inventoryClient->createReservation($reservationRequest);
+            
+            $order->setReservationId($reservationResponse->getReservationId());
             $order->setStatus(Order::STATUS_RESERVED);
         } catch (\Throwable $e) {
             $order->setStatus(Order::STATUS_CANCELED);
@@ -156,25 +249,20 @@ class OrderController extends AbstractController
         }
         
         // Step 3: Create payment intent
-        $billingUrl = $_ENV['BILLING_SERVICE_URL'] ?? 'http://localhost:8003';
         try {
-            $paymentResponse = $this->httpClient->request('POST', "{$billingUrl}/v1/billing/payment-intents", [
-                'json' => [
-                    'orderId' => $order->getId(),
-                    'amount' => (float) $order->getTotalAmount(),
-                    'currency' => 'USD',
-                    'idempotencyKey' => $idempotencyKey . '_payment',
-                ],
-            ]);
-            $paymentData = $paymentResponse->toArray();
+            $paymentRequest = new \BillingApi\Model\CreatePaymentIntentRequest();
+            $paymentRequest->setOrderId($order->getId());
+            $paymentRequest->setAmount((float) $order->getTotalAmount());
+            $paymentRequest->setCurrency('USD');
+            $paymentRequest->setIdempotencyKey($idempotencyKey . '_payment');
             
-            $order->setPaymentIntentId($paymentData['paymentIntentId'] ?? null);
+            $paymentResponse = $this->billingClient->createPaymentIntent($paymentRequest);
+            
+            $order->setPaymentIntentId($paymentResponse->getPaymentIntentId());
         } catch (\Throwable $e) {
             // Payment intent creation failed - release reservation
             try {
-                $this->httpClient->request('POST', "{$inventoryUrl}/v1/inventory/reservations/{$order->getReservationId()}/release", [
-                    'json' => ['orderId' => $order->getId()],
-                ]);
+                $this->inventoryClient->releaseReservation($order->getReservationId());
             } catch (\Throwable $releaseError) {
                 // Log but continue
             }
@@ -198,10 +286,42 @@ class OrderController extends AbstractController
     }
 
     #[Route('/{id}', name: 'order_get', methods: ['GET'])]
-    #[OA\Get(path: '/v1/orders/{id}', summary: 'Get an order', description: 'Retrieves order details by ID')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true)]
-    #[OA\Response(response: 200, description: 'Order found')]
-    #[OA\Response(response: 404, description: 'Order not found')]
+    #[OA\Get(
+        path: '/v1/orders/{id}',
+        operationId: 'getOrder',
+        summary: 'Get an order',
+        description: 'Retrieves order details by ID'
+    )]
+    #[OA\Parameter(
+        name: 'id',
+        in: 'path',
+        description: 'Order ID',
+        required: true,
+        schema: new OA\Schema(type: 'string', format: 'uuid')
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Order found',
+        content: new OA\JsonContent(ref: '#/components/schemas/Order')
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Order not found',
+        content: new OA\JsonContent(
+            type: 'object',
+            properties: [
+                new OA\Property(
+                    property: 'error',
+                    type: 'object',
+                    properties: [
+                        new OA\Property(property: 'code', type: 'string', example: 'ORDER_NOT_FOUND'),
+                        new OA\Property(property: 'message', type: 'string'),
+                        new OA\Property(property: 'traceId', type: 'string')
+                    ]
+                )
+            ]
+        )
+    )]
     public function getOrder(string $id): JsonResponse
     {
         $order = $this->orderRepository->find($id);
@@ -220,8 +340,8 @@ class OrderController extends AbstractController
     }
 
     #[Route('/{id}/cancel', name: 'order_cancel', methods: ['POST'])]
-    #[OA\Post(path: '/v1/orders/{id}/cancel', summary: 'Cancel an order', description: 'Cancels an order, releases inventory reservation and processes refund if paid')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true)]
+    #[OA\Post(path: '/v1/orders/{id}/cancel', operationId: 'cancelOrder', summary: 'Cancel an order', description: 'Cancels an order, releases inventory reservation and processes refund if paid')]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Order canceled')]
     #[OA\Response(response: 404, description: 'Order not found')]
     #[OA\Response(response: 503, description: 'Refund failed')]
@@ -244,19 +364,15 @@ class OrderController extends AbstractController
             return $this->json($this->serializeOrder($order));
         }
         
-        $inventoryUrl = $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002';
-        $billingUrl = $_ENV['BILLING_SERVICE_URL'] ?? 'http://localhost:8003';
-        
         // If paid, refund first
         if ($order->getStatus() === Order::STATUS_PAID && $order->getPaymentIntentId()) {
             try {
-                $this->httpClient->request('POST', "{$billingUrl}/v1/billing/refunds", [
-                    'json' => [
-                        'orderId' => $order->getId(),
-                        'paymentIntentId' => $order->getPaymentIntentId(),
-                        'amount' => (float) $order->getTotalAmount(),
-                    ],
-                ]);
+                $refundRequest = new \BillingApi\Model\CreateRefundRequest();
+                $refundRequest->setOrderId($order->getId());
+                $refundRequest->setPaymentIntentId($order->getPaymentIntentId());
+                $refundRequest->setAmount((float) $order->getTotalAmount());
+                
+                $this->billingClient->createRefund($refundRequest);
             } catch (\Throwable $e) {
                 return $this->json([
                     'error' => [
@@ -271,9 +387,7 @@ class OrderController extends AbstractController
         // Release reservation
         if ($order->getReservationId()) {
             try {
-                $this->httpClient->request('POST', "{$inventoryUrl}/v1/inventory/reservations/{$order->getReservationId()}/release", [
-                    'json' => ['orderId' => $order->getId()],
-                ]);
+                $this->inventoryClient->releaseReservation($order->getReservationId());
             } catch (\Throwable $e) {
                 // Log but continue
             }
@@ -287,8 +401,8 @@ class OrderController extends AbstractController
     }
 
     #[Route('/{id}/events/payment-captured', name: 'order_payment_captured', methods: ['POST'])]
-    #[OA\Post(path: '/v1/orders/{id}/events/payment-captured', summary: 'Payment captured event', description: 'Webhook for payment captured event - commits inventory and marks order as paid')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true)]
+    #[OA\Post(path: '/v1/orders/{id}/events/payment-captured', operationId: 'orderPaymentCaptured', summary: 'Payment captured event', description: 'Webhook for payment captured event - commits inventory and marks order as paid')]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Event processed')]
     #[OA\Response(response: 404, description: 'Order not found')]
     #[OA\Response(response: 409, description: 'Order in invalid state')]
@@ -318,12 +432,9 @@ class OrderController extends AbstractController
         }
         
         // Commit inventory reservation
-        $inventoryUrl = $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002';
         if ($order->getReservationId()) {
             try {
-                $this->httpClient->request('POST', "{$inventoryUrl}/v1/inventory/reservations/{$order->getReservationId()}/commit", [
-                    'json' => ['orderId' => $order->getId()],
-                ]);
+                $this->inventoryClient->commitReservation($order->getReservationId());
             } catch (\Throwable $e) {
                 // Log but continue - payment already captured
             }
@@ -341,8 +452,8 @@ class OrderController extends AbstractController
     }
 
     #[Route('/{id}/events/refunded', name: 'order_refunded', methods: ['POST'])]
-    #[OA\Post(path: '/v1/orders/{id}/events/refunded', summary: 'Refunded event', description: 'Webhook for refund event - marks order as canceled')]
-    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true)]
+    #[OA\Post(path: '/v1/orders/{id}/events/refunded', operationId: 'orderRefunded', summary: 'Refunded event', description: 'Webhook for refund event - marks order as canceled')]
+    #[OA\Parameter(name: 'id', in: 'path', description: 'Order ID', required: true, schema: new OA\Schema(type: 'string', format: 'uuid'))]
     #[OA\Response(response: 200, description: 'Event processed')]
     #[OA\Response(response: 404, description: 'Order not found')]
     public function orderRefunded(string $id): JsonResponse

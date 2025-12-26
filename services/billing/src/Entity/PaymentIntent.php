@@ -6,8 +6,25 @@ use App\Repository\PaymentIntentRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Uid\Uuid;
+use OpenApi\Attributes as OA;
 
 #[ORM\Entity(repositoryClass: PaymentIntentRepository::class)]
+#[OA\Schema(
+    schema: 'PaymentIntent',
+    title: 'Payment Intent',
+    description: 'A payment intent for processing order payments',
+    required: ['id', 'orderId', 'amount', 'currency', 'status'],
+    properties: [
+        new OA\Property(property: 'id', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'orderId', type: 'string', format: 'uuid', example: '550e8400-e29b-41d4-a716-446655440000'),
+        new OA\Property(property: 'amount', type: 'string', format: 'decimal', example: '25.99'),
+        new OA\Property(property: 'currency', type: 'string', example: 'USD'),
+        new OA\Property(property: 'status', type: 'string', enum: ['requires_payment_method', 'processing', 'captured', 'refunded', 'failed'], example: 'captured'),
+        new OA\Property(property: 'clientSecret', type: 'string', nullable: true, example: 'secret_abc123'),
+        new OA\Property(property: 'createdAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z'),
+        new OA\Property(property: 'updatedAt', type: 'string', format: 'date-time', example: '2025-01-01T12:00:00Z')
+    ]
+)]
 class PaymentIntent
 {
     public const STATUS_REQUIRES_PAYMENT_METHOD = 'requires_payment_method';
