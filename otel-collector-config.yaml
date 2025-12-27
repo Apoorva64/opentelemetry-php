@@ -32,6 +32,7 @@ connectors:
       - name: peer.service
       - name: server.address
       - name: db.system
+      - name: url.path
     exemplars:
       enabled: true
     dimensions_cache_size: 1000

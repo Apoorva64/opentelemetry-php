@@ -2,6 +2,155 @@
 
 A microservices-based restaurant management system with four Symfony APIs that communicate with each other:
 
+## Project Goal: OpenTelemetry-Based Observability
+
+This exploratory project aims to demonstrate how to operate microservices using **OpenTelemetry (OTel)** instrumentation with a focus on:
+
+1. **RED Metrics** (Rate, Errors, Duration) for each service endpoint
+2. **Dependency Metrics** tracking inter-service communication patterns
+
+### Example: Monitoring the Order Creation Flow
+
+When a client creates an order via `POST /v1/orders`, the OrderService makes multiple downstream calls. With OTel instrumentation, we can track:
+
+**RED Metrics for OrderService:**
+- **Rate**: 45 requests/min to `POST /v1/orders`
+- **Errors**: 2% error rate (HTTP 5xx responses)
+- **Duration**: P95 latency of 320ms
+
+**Dependency Metrics from OrderService:**
+- MenuService validation call: 50ms avg (150 calls/min)
+- InventoryService reservation: 80ms avg (150 calls/min)
+- BillingService payment intent: 120ms avg (150 calls/min)
+
+This allows operators to:
+- Identify that the BillingService dependency is the slowest component
+- Detect when MenuService validation failures cause order errors
+- Track the cascading impact of InventoryService timeouts on overall order success rate
+- Calculate the total time spent in downstream dependencies vs. local processing
+
+### Approach: Span Metrics Connector
+
+This project uses the **OTel Collector's Span Metrics Connector** to automatically derive RED metrics from distributed traces—no application code changes required.
+
+The connector processes incoming spans and generates metrics:
+
+```yaml
+# otel-collector-config.yaml
+connectors:
+  spanmetrics:
+    dimensions:
+      - name: http.method
+      - name: http.route
+      - name: http.status_code
+      - name: service.name
+```
+
+**Generated Metrics:**
+| Metric | Type | Description |
+|--------|------|-------------|
+| `traces_spanmetrics_calls_total` | Counter | Request **Rate** (R) |
+| `traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}` | Counter | **Error** count (E) |
+| `traces_spanmetrics_latency_bucket` | Histogram | **Duration** distribution (D) |
+
+**Why this approach?**
+- ✅ Zero code changes — metrics derived from existing trace instrumentation
+- ✅ Automatic dependency tracking — client spans show outbound calls
+- ✅ Consistent — same metric format across all services
+- ✅ Correlated — metrics link back to traces via exemplars
+
+### Challenge: Dependency Metrics
+
+While RED metrics are easily derived from spans, **dependency metrics** (tracking calls to downstream services) are harder to obtain. The Span Metrics Connector generates metrics per service, but doesn't automatically know *which* service a client span is calling.
+
+#### Option 1: Code Instrumentation with Dependency Labels
+
+Modify the application's HTTP client instrumentation to include dependency attributes:
+
+```php
+// When making outbound HTTP calls, add semantic attributes
+$span->setAttribute('peer.service', 'billing-service');
+$span->setAttribute('url.template', '/v1/billing/payments/{id}/capture');
+```
+
+Then configure the Span Metrics Connector to use these dimensions:
+
+```yaml
+connectors:
+  spanmetrics:
+    dimensions:
+      - name: peer.service      # Which service was called
+      - name: url.template      # The route pattern (not the actual URL)
+```
+
+**Pros**: Fine-grained control, accurate service mapping  
+**Cons**: Requires code changes, must maintain consistency across all clients
+
+#### Option 2: Global Trace Backend with Service Graph
+
+Use a centralized tracing backend that analyzes the full trace topology:
+
+**Grafana Tempo** with metrics-generator:
+```yaml
+# tempo.yaml
+metrics_generator:
+  processor:
+    service_graphs:
+      enabled: true
+  storage:
+    path: /var/tempo/generator/wal
+```
+
+**OTel Collector** with servicegraph connector:
+```yaml
+# otel-collector-config.yaml
+connectors:
+  servicegraph:
+    latency_histogram_buckets: [10ms, 50ms, 100ms, 500ms, 1s]
+    dimensions:
+      - http.method
+    store:
+      ttl: 1s
+      max_items: 1000
+```
+
+**Generated dependency metrics:**
+- `traces_service_graph_request_total{client="orders", server="billing"}`
+- `traces_service_graph_request_failed_total{client="orders", server="billing"}`
+- `traces_service_graph_request_server_seconds{client="orders", server="billing"}`
+
+**Pros**: No code changes, automatic service-to-service mapping from trace context  
+**Cons**: Requires all traces to flow through a single collector/backend, higher resource usage
+
+#### This Project: Option 1 with Code Generation
+
+This project explores **Option 1** — embedding dependency labels directly in the HTTP client code. The key insight is that this approach becomes practical when combined with **code generation**.
+
+Each service exposes an OpenAPI specification (`openapi.json`), and we use **openapi-generator** to produce typed PHP clients:
+
+```
+clients/
+├── BillingClient/      # Generated from services/billing/openapi.json
+├── InventoryClient/    # Generated from services/inventory/openapi.json
+├── MenuClient/         # Generated from services/menu/openapi.json
+└── OrdersClient/       # Generated from services/orders/openapi.json
+```
+
+By customizing the generator templates, we can automatically inject `peer.service` and `url.template` attributes into every generated API call:
+
+```php
+// Auto-generated in BillingClient/src/BillingClient/PaymentsApi.php
+$span->setAttribute('peer.service', 'billing-service');
+$span->setAttribute('url.template', '/v1/billing/payments/{paymentIntentId}/capture');
+```
+
+**Benefits of this approach:**
+- ✅ Dependency labels are consistent across all generated clients
+- ✅ No manual instrumentation — attributes injected at generation time
+- ✅ `url.template` uses the OpenAPI path pattern, not runtime URLs (avoids cardinality explosion)
+- ✅ Regenerating clients picks up new endpoints automatically
+- ✅ **More scalable than Option 2** — each service emits its own dependency metrics locally, no need for a centralized collector to hold all spans in memory to compute the service graph. Option 2's global trace backend becomes a bottleneck as trace volume grows
+
 | Service | Port | Database | Description |
 |---------|------|----------|-------------|
 | **MenuService** | 8000 | SQLite | Menu items, pricing, availability |
@@ -21,7 +170,7 @@ A microservices-based restaurant management system with four Symfony APIs that c
               ┌─────│ OrderService │─────┐
               │     └──────┬───────┘     │
               │            │             │
-    ①validate│            │             │③payment-intent
+     ①validate│            │             │③payment-intent
               ▼            │             ▼
        ┌────────────┐      │      ┌──────────────┐
        │MenuService │      │      │BillingService│

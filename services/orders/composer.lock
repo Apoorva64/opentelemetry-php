@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c7be0988d9d999c81bbcaa2cff683998",
+    "content-hash": "8d52ef10afda81f9a2ef9062556bacba",
     "packages": [
         {
             "name": "brick/math",
@@ -2085,6 +2085,128 @@
             "time": "2025-09-17T23:10:12+00:00"
         },
         {
+            "name": "open-telemetry/opentelemetry-auto-doctrine",
+            "version": "0.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/opentelemetry-php/contrib-auto-doctrine.git",
+                "reference": "7df322cd9717f7b8ce86dc32b6828441ee1cd8f2"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/opentelemetry-php/contrib-auto-doctrine/zipball/7df322cd9717f7b8ce86dc32b6828441ee1cd8f2",
+                "reference": "7df322cd9717f7b8ce86dc32b6828441ee1cd8f2",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/dbal": "^3 || ^4 || ^5",
+                "ext-opentelemetry": "*",
+                "open-telemetry/api": "^1.0",
+                "open-telemetry/sem-conv": "^1.32",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3",
+                "open-telemetry/sdk": "^1.0",
+                "phan/phan": "^5.0",
+                "php-http/mock-client": "*",
+                "phpstan/phpstan": "^1.1",
+                "phpstan/phpstan-phpunit": "^1.0",
+                "phpunit/phpunit": "^9.5",
+                "psalm/plugin-phpunit": "^0.19.2",
+                "vimeo/psalm": "6.4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "_register.php"
+                ],
+                "psr-4": {
+                    "OpenTelemetry\\Contrib\\Instrumentation\\Doctrine\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "OpenTelemetry auto-instrumentation for Doctrine",
+            "homepage": "https://opentelemetry.io/docs/php",
+            "keywords": [
+                "doctrine",
+                "instrumentation",
+                "open-telemetry",
+                "opentelemetry",
+                "otel",
+                "tracing"
+            ],
+            "support": {
+                "source": "https://github.com/opentelemetry-php/contrib-auto-doctrine/tree/0.3.1"
+            },
+            "time": "2025-07-05T05:16:57+00:00"
+        },
+        {
+            "name": "open-telemetry/opentelemetry-auto-guzzle",
+            "version": "1.2.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/opentelemetry-php/contrib-auto-guzzle.git",
+                "reference": "dd67e8a1cf937a505114aa70c2dad33289ddeecd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/opentelemetry-php/contrib-auto-guzzle/zipball/dd67e8a1cf937a505114aa70c2dad33289ddeecd",
+                "reference": "dd67e8a1cf937a505114aa70c2dad33289ddeecd",
+                "shasum": ""
+            },
+            "require": {
+                "ext-opentelemetry": "*",
+                "guzzlehttp/guzzle": "^7",
+                "open-telemetry/api": "^1.0",
+                "open-telemetry/sem-conv": "^1.32",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3",
+                "guzzlehttp/promises": "^2",
+                "nyholm/psr7": "*",
+                "open-telemetry/sdk": "^1.0",
+                "phan/phan": "^5.0",
+                "phpstan/phpstan": "^1.1",
+                "phpstan/phpstan-mockery": "^1.1.0",
+                "phpstan/phpstan-phpunit": "^1.0",
+                "phpunit/phpunit": "^9.5",
+                "psalm/plugin-phpunit": "^0.19.2",
+                "vimeo/psalm": "6.4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "_register.php"
+                ],
+                "psr-4": {
+                    "OpenTelemetry\\Contrib\\Instrumentation\\Guzzle\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "OpenTelemetry auto-instrumentation for Guzzle.",
+            "homepage": "https://opentelemetry.io/docs/php",
+            "keywords": [
+                "Guzzle",
+                "instrumentation",
+                "open-telemetry",
+                "opentelemetry",
+                "otel",
+                "tracing"
+            ],
+            "support": {
+                "source": "https://github.com/opentelemetry-php/contrib-auto-guzzle/tree/1.2.1"
+            },
+            "time": "2025-06-17T23:41:12+00:00"
+        },
+        {
             "name": "open-telemetry/opentelemetry-auto-http-async",
             "version": "1.1.1",
             "source": {
@@ -2147,6 +2269,65 @@
                 "source": "https://github.com/opentelemetry-php/contrib-auto-http-async/tree/1.1.1"
             },
             "time": "2025-05-14T00:19:47+00:00"
+        },
+        {
+            "name": "open-telemetry/opentelemetry-auto-io",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/opentelemetry-php/contrib-auto-io.git",
+                "reference": "c80acf23fe986a931673029ea5e665c0538a6dda"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/opentelemetry-php/contrib-auto-io/zipball/c80acf23fe986a931673029ea5e665c0538a6dda",
+                "reference": "c80acf23fe986a931673029ea5e665c0538a6dda",
+                "shasum": ""
+            },
+            "require": {
+                "ext-opentelemetry": "*",
+                "open-telemetry/api": "^1.0",
+                "open-telemetry/sem-conv": "^1.32",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3",
+                "open-telemetry/sdk": "^1.0",
+                "phan/phan": "^5.0",
+                "php-http/mock-client": "*",
+                "phpstan/phpstan": "^1.1",
+                "phpstan/phpstan-phpunit": "^1.0",
+                "phpunit/phpunit": "^9.5",
+                "psalm/plugin-phpunit": "^0.19.2",
+                "vimeo/psalm": "6.4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "_register.php"
+                ],
+                "psr-4": {
+                    "OpenTelemetry\\Contrib\\Instrumentation\\IO\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "OpenTelemetry auto-instrumentation for IO",
+            "homepage": "https://opentelemetry.io/docs/php",
+            "keywords": [
+                "instrumentation",
+                "io",
+                "open-telemetry",
+                "opentelemetry",
+                "otel",
+                "tracing"
+            ],
+            "support": {
+                "source": "https://github.com/opentelemetry-php/contrib-auto-io/tree/0.1.0"
+            },
+            "time": "2025-09-16T23:24:36+00:00"
         },
         {
             "name": "open-telemetry/opentelemetry-auto-psr18",

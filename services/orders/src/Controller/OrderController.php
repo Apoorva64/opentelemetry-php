@@ -32,7 +32,7 @@ class OrderController extends AbstractController
 
     public function __construct(
         private EntityManagerInterface $em,
-        private OrderRepository $orderRepository,
+        private OrderRepository $orderRepository
     ) {
         $guzzle = new GuzzleClient();
         
