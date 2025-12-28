@@ -27,12 +27,12 @@ connectors:
         buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
     dimensions:
       # OTel HTTP semantic conventions attributes
-      - name: http.method
       - name: http.response.status_code
       - name: http.route
       - name: peer.service
       - name: server.address
       - name: url.template
+      - name: http.request.method
     exemplars:
       enabled: true
     dimensions_cache_size: 1000
@@ -60,11 +60,6 @@ processors:
   # Using transform processor with datapoint context to separate server/client metrics
   transform/spanmetrics:
     metric_statements:
-      # Rename http.method -> http.request.method on all datapoints
-      - context: datapoint
-        statements:
-          - set(attributes["http.request.method"], attributes["http.method"]) where attributes["http.method"] != nil
-          - delete_key(attributes, "http.method") where attributes["http.request.method"] != nil
       # Rename metrics based on span.kind
       - context: metric
         statements:

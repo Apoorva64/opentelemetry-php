@@ -284,8 +284,8 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
-          "legendFormat": "{{http_route}}",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method)",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A"
         }
       ],
@@ -329,8 +329,8 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
-          "legendFormat": "{{http_route}}",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route, http_request_method))",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A"
         }
       ],
@@ -456,8 +456,8 @@
       },
       "targets": [
         {
-          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
-          "legendFormat": "{{http_route}}",
+          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route, http_request_method) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method )",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A"
         }
       ],
@@ -483,8 +483,8 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[1h])) by (http_route)",
-          "legendFormat": "{{http_route}}",
+          "expr": "sum(increase(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[1h])) by (http_route, http_request_method)",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A"
         }
       ],
@@ -527,38 +527,38 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method)",
           "format": "table",
           "instant": true,
-          "legendFormat": "",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
+          "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route, http_request_method))",
           "format": "table",
           "instant": true,
-          "legendFormat": "",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route, http_request_method))",
           "format": "table",
           "instant": true,
-          "legendFormat": "",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "C"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
+          "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route, http_request_method))",
           "format": "table",
           "instant": true,
-          "legendFormat": "",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "D"
         },
         {
-          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
+          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route, http_request_method) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route, http_request_method)",
           "format": "table",
           "instant": true,
-          "legendFormat": "",
+          "legendFormat": "{{http_request_method}} {{http_route}}",
           "refId": "E"
         }
       ],
@@ -1123,8 +1123,8 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
-              "legendFormat": "{{url_template}}",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method)",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "A"
             }
           ],
@@ -1168,8 +1168,8 @@
           },
           "targets": [
             {
-              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
-              "legendFormat": "{{url_template}}",
+              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template, http_request_method) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method)",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "A"
             }
           ],
@@ -1213,8 +1213,8 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
-              "legendFormat": "{{url_template}}",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template, http_request_method))",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "A"
             }
           ],
@@ -1400,38 +1400,38 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method)",
               "format": "table",
               "instant": true,
-              "legendFormat": "",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
+              "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template, http_request_method))",
               "format": "table",
               "instant": true,
-              "legendFormat": "",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "B"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template, http_request_method))",
               "format": "table",
               "instant": true,
-              "legendFormat": "",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "C"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
+              "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template, http_request_method))",
               "format": "table",
               "instant": true,
-              "legendFormat": "",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "D"
             },
             {
-              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
+              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template, http_request_method) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template, http_request_method)",
               "format": "table",
               "instant": true,
-              "legendFormat": "",
+              "legendFormat": "{{http_request_method}} {{url_template}}",
               "refId": "E"
             }
           ],

@@ -272,14 +272,36 @@ For this project, we use the Span Metrics Connector + Transform Processor becaus
 3. The transform processor standardizes output without code changes
 4. When PHP OTel SDK metrics support matures, we can switch to native SDK metrics
 
+### Grafana Dashboards
+
+The project includes pre-configured Grafana dashboards for visualizing RED metrics and service dependencies. Access Grafana at `http://localhost:3000` when running with Docker Compose.
+
+#### Service Details Dashboard (RED Metrics and Dependency Metrics)
+
+The **Service Details** dashboard provides comprehensive RED metrics for each service as well as metrics for their dependencies
+
+![Service Details Dashboard](docs/images/dashboard-service-details.png)
+
+![Service Details Dashboard 2 ](docs/images/dashboard-service-details-2.png)
+
+A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/Yj7I4X9CMvipuc9Mb6xKqKvD1c9zceCE)
+
+#### Service Overview Dashboard
+
+The **Service Overview** dashboard provides a way to oversee multiple services
+
+![Service Overview dashboard](docs/images/dashboard-service-overview.png)
+
+A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/vtEP193DlBhdznXiITK7zOGkbSvB1vJi)
+
+## Inter-Service Call Flow
+
 | Service | Port | Database | Description |
 |---------|------|----------|-------------|
 | **MenuService** | 8000 | SQLite | Menu items, pricing, availability |
 | **OrderService** | 8001 | SQLite | Order lifecycle, orchestration |
 | **InventoryService** | 8002 | SQLite | Stock, reservations |
 | **BillingService** | 8003 | SQLite | Payments, refunds |
-
-## Inter-Service Call Flow
 
 ```
                     ┌──────────────┐

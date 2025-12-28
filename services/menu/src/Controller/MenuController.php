@@ -285,16 +285,12 @@ class MenuController extends AbstractController
         $this->em->flush();
         
         // Call InventoryService to reconcile availability
-        try {
-            $reconcileRequest = new \InventoryApi\Model\ReconcileInventoryRequest();
-            $reconcileRequest->setItemId($id);
-            $reconcileRequest->setAvailable($available);
-            $reconcileRequest->setIngredients($item->getIngredients());
-            
-            $this->inventoryClient->reconcileInventory($reconcileRequest);
-        } catch (\Throwable $e) {
-            // Log but don't fail the request
-        }
+        $reconcileRequest = new \InventoryApi\Model\ReconcileInventoryRequest();
+        $reconcileRequest->setItemId($id);
+        $reconcileRequest->setAvailable($available);
+        $reconcileRequest->setIngredients($item->getIngredients());
+        
+        $this->inventoryClient->reconcileInventory($reconcileRequest);
         
         return $this->json([
             'itemId' => $id,

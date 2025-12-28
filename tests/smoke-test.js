@@ -88,7 +88,21 @@ export default function() {
     group('Full Order Flow', function() {
         // First get a menu item
         const menuRes = http.get(`${BASE_URLS.menu}/v1/menu/items`);
-        const menuData = JSON.parse(menuRes.body);
+        
+        if (menuRes.status !== 200) {
+            console.log(`Menu fetch failed with status ${menuRes.status}: ${menuRes.body}`);
+            errorRate.add(1);
+            return;
+        }
+        
+        let menuData;
+        try {
+            menuData = JSON.parse(menuRes.body);
+        } catch (e) {
+            console.log(`Failed to parse menu response: ${menuRes.body}`);
+            errorRate.add(1);
+            return;
+        }
         
         if (!menuData.items || menuData.items.length === 0) {
             const createRes = http.post(`${BASE_URLS.menu}/v1/menu/items`, JSON.stringify({
@@ -104,7 +118,14 @@ export default function() {
                 errorRate.add(1);
                 return;
             }
-            menuData.items = [JSON.parse(createRes.body)];
+            
+            try {
+                menuData.items = [JSON.parse(createRes.body)];
+            } catch (e) {
+                console.log(`Failed to parse create menu item response: ${createRes.body}`);
+                errorRate.add(1);
+                return;
+            }
         }
         
         const item = menuData.items[randomIntBetween(0, menuData.items.length - 1)];
@@ -127,7 +148,14 @@ export default function() {
             return;
         }
         
-        const orderData = JSON.parse(orderRes.body);
+        let orderData;
+        try {
+            orderData = JSON.parse(orderRes.body);
+        } catch (e) {
+            console.log(`Failed to parse order response: ${orderRes.body}`);
+            errorRate.add(1);
+            return;
+        }
         
         // Capture payment if available
         if (orderData.paymentIntentId) {
@@ -150,6 +178,22 @@ export default function() {
             sleep(0.3);
             http.get(`${BASE_URLS.orders}/v1/orders/${orderData.orderId}`);
         }
+        
+        // // Replenish stock to avoid running out during long smoke tests
+        // sleep(0.3);
+        // const orderedQty = orderPayload.items[0].qty;
+        // const replenishRes = http.put(
+        //     `${BASE_URLS.inventory}/v1/inventory/stock/${item.id}`,
+        //     JSON.stringify({
+        //         quantity: orderedQty,
+        //         itemName: item.name,
+        //     }),
+        //     { headers }
+        // );
+        
+        // check(replenishRes, {
+        //     'stock replenished': (r) => r.status >= 200 && r.status < 300,
+        // }) || errorRate.add(1);
     });
     
     // Sleep between iterations to maintain steady load
