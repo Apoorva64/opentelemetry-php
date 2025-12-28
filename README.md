@@ -284,7 +284,7 @@ The **Service Details** dashboard provides comprehensive RED metrics for each se
 
 ![Service Details Dashboard 2 ](docs/images/dashboard-service-details-2.png)
 
-A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/Yj7I4X9CMvipuc9Mb6xKqKvD1c9zceCE)
+A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/vtEP193DlBhdznXiITK7zOGkbSvB1vJi)
 
 #### Service Overview Dashboard
 
@@ -292,7 +292,7 @@ The **Service Overview** dashboard provides a way to oversee multiple services
 
 ![Service Overview dashboard](docs/images/dashboard-service-overview.png)
 
-A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/vtEP193DlBhdznXiITK7zOGkbSvB1vJi)
+A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/Yj7I4X9CMvipuc9Mb6xKqKvD1c9zceCE)
 
 ## Inter-Service Call Flow
 
