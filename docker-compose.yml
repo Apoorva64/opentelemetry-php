@@ -15,7 +15,7 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:13133"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,7 +32,7 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:16686"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,7 +52,7 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8428/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:8428/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,7 +74,7 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:3000/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -114,7 +114,7 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:9100/metrics"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,23 +135,24 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  menu:
+  menu-fpm:
     build:
       context: .
       dockerfile: ./services/menu/Dockerfile
-    container_name: rms-menu
-    ports:
-      - "8000:8000"
+      target: php-fpm
+    container_name: rms-menu-fpm
+    volumes:
+      - menu-data:/app/var
     environment:
-      - APP_ENV=dev
+      - APP_ENV=prod
       - APP_SECRET=menu_secret_key_change_me
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/menu.db
-      - INVENTORY_SERVICE_URL=http://inventory:8002
+      - INVENTORY_SERVICE_URL=http://inventory:80
       - OTEL_PHP_AUTOLOAD_ENABLED=true
       - OTEL_SERVICE_NAME=MenuApi
       - OTEL_TRACES_EXPORTER=otlp
@@ -160,30 +161,51 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/menu/health"]
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  menu:
+    image: nginx:alpine
+    container_name: rms-menu
+    ports:
+      - "8000:80"
+    volumes:
+      - ./services/menu/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/menu/public:/app/public:ro
+    depends_on:
+      menu-fpm:
+        condition: service_started
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
-  orders:
+  orders-fpm:
     build:
       context: .
       dockerfile: ./services/orders/Dockerfile
-    container_name: rms-orders
-    ports:
-      - "8001:8001"
+      target: php-fpm
+    container_name: rms-orders-fpm
+    volumes:
+      - orders-data:/app/var
     environment:
-      - APP_ENV=dev
+      - APP_ENV=prod
       - APP_SECRET=orders_secret_key_change_me
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/orders.db
-      - MENU_SERVICE_URL=http://menu:8000
-      - INVENTORY_SERVICE_URL=http://inventory:8002
-      - BILLING_SERVICE_URL=http://billing:8003
+      - MENU_SERVICE_URL=http://menu:80
+      - INVENTORY_SERVICE_URL=http://inventory:80
+      - BILLING_SERVICE_URL=http://billing:80
       - OTEL_PHP_AUTOLOAD_ENABLED=true
       - OTEL_SERVICE_NAME=OrdersApi
       - OTEL_TRACES_EXPORTER=otlp
@@ -192,7 +214,7 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
     depends_on:
       menu:
         condition: service_healthy
@@ -203,25 +225,46 @@ services:
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/v1/orders/health"]
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  orders:
+    image: nginx:alpine
+    container_name: rms-orders
+    ports:
+      - "8001:80"
+    volumes:
+      - ./services/orders/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/orders/public:/app/public:ro
+    depends_on:
+      orders-fpm:
+        condition: service_started
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
-  inventory:
+  inventory-fpm:
     build:
       context: .
       dockerfile: ./services/inventory/Dockerfile
-    container_name: rms-inventory
-    ports:
-      - "8002:8002"
+      target: php-fpm
+    container_name: rms-inventory-fpm
+    volumes:
+      - inventory-data:/app/var
     environment:
-      - APP_ENV=dev
+      - APP_ENV=prod
       - APP_SECRET=inventory_secret_key_change_me
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/inventory.db
-      - MENU_SERVICE_URL=http://menu:8000
-      - ORDERS_SERVICE_URL=http://orders:8001
+      - MENU_SERVICE_URL=http://menu:80
+      - ORDERS_SERVICE_URL=http://orders:80
       - OTEL_PHP_AUTOLOAD_ENABLED=true
       - OTEL_SERVICE_NAME=InventoryApi
       - OTEL_TRACES_EXPORTER=otlp
@@ -230,28 +273,49 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/v1/inventory/health"]
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  inventory:
+    image: nginx:alpine
+    container_name: rms-inventory
+    ports:
+      - "8002:80"
+    volumes:
+      - ./services/inventory/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/inventory/public:/app/public:ro
+    depends_on:
+      inventory-fpm:
+        condition: service_started
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
 
-  billing:
+  billing-fpm:
     build:
       context: .
       dockerfile: ./services/billing/Dockerfile
-    container_name: rms-billing
-    ports:
-      - "8003:8003"
+      target: php-fpm
+    container_name: rms-billing-fpm
+    volumes:
+      - billing-data:/app/var
     environment:
-      - APP_ENV=dev
+      - APP_ENV=prod
       - APP_SECRET=billing_secret_key_change_me
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/billing.db
-      - ORDERS_SERVICE_URL=http://orders:8001
+      - ORDERS_SERVICE_URL=http://orders:80
       - OTEL_PHP_AUTOLOAD_ENABLED=true
       - OTEL_SERVICE_NAME=BillingApi
       - OTEL_TRACES_EXPORTER=otlp
@@ -260,12 +324,31 @@ services:
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
-      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=dev
-
+      - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
     networks:
       - rms-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/v1/billing/health"]
+      test: ["CMD", "php-fpm-healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  billing:
+    image: nginx:alpine
+    container_name: rms-billing
+    ports:
+      - "8003:80"
+    volumes:
+      - ./services/billing/docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/billing/public:/app/public:ro
+    depends_on:
+      billing-fpm:
+        condition: service_started
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -278,10 +361,10 @@ services:
       dockerfile: Dockerfile
     container_name: rms-integration-test
     environment:
-      - MENU_SERVICE_URL=http://menu:8000
-      - ORDERS_SERVICE_URL=http://orders:8001
-      - INVENTORY_SERVICE_URL=http://inventory:8002
-      - BILLING_SERVICE_URL=http://billing:8003
+      - MENU_SERVICE_URL=http://menu:80
+      - ORDERS_SERVICE_URL=http://orders:80
+      - INVENTORY_SERVICE_URL=http://inventory:80
+      - BILLING_SERVICE_URL=http://billing:80
     depends_on:
       - menu
       - orders
@@ -298,10 +381,10 @@ services:
     volumes:
       - ./tests:/tests
     environment:
-      - MENU_URL=http://menu:8000
-      - ORDERS_URL=http://orders:8001
-      - INVENTORY_URL=http://inventory:8002
-      - BILLING_URL=http://billing:8003
+      - MENU_URL=http://menu:80
+      - ORDERS_URL=http://orders:80
+      - INVENTORY_URL=http://inventory:80
+      - BILLING_URL=http://billing:80
     command: run /tests/smoke-test.js
     depends_on:
       menu:
@@ -323,10 +406,10 @@ services:
     volumes:
       - ./tests:/tests
     environment:
-      - MENU_URL=http://menu:8000
-      - ORDERS_URL=http://orders:8001
-      - INVENTORY_URL=http://inventory:8002
-      - BILLING_URL=http://billing:8003
+      - MENU_URL=http://menu:80
+      - ORDERS_URL=http://orders:80
+      - INVENTORY_URL=http://inventory:80
+      - BILLING_URL=http://billing:80
     command: run /tests/load-test.js
     depends_on:
       menu:
@@ -349,3 +432,7 @@ networks:
 volumes:
   victoriametrics-data:
   grafana-data:
+  menu-data:
+  orders-data:
+  inventory-data:
+  billing-data:
