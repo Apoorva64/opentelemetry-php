@@ -15,6 +15,8 @@ use BillingApi\BillingClient\DefaultApi as BillingClient;
 use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
 use MenuApi\MenuClient\DefaultApi as MenuClient;
 use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\HandlerStack;
+use App\Middleware\OpenTelemetryGuzzleMiddleware;
 
 #[OA\Info(
     version: '1.0.0',
@@ -34,7 +36,9 @@ class OrderController extends AbstractController
         private EntityManagerInterface $em,
         private OrderRepository $orderRepository
     ) {
-        $guzzle = new GuzzleClient();
+        $stack = HandlerStack::create();
+        $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
+        $guzzle = new GuzzleClient(['handler' => $stack]);
         
         $billingConfig = new \BillingApi\Configuration();
         $billingConfig->setHost($_ENV['BILLING_SERVICE_URL'] ?? 'http://localhost:8003');
@@ -70,7 +74,7 @@ class OrderController extends AbstractController
     public function health(): JsonResponse
     {
         return $this->json(['status' => 'ok', 'service' => 'orders']);
-    }
+    }   
 
     #[Route('', name: 'order_create', methods: ['POST'])]
     #[OA\Post(

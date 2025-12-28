@@ -18,7 +18,7 @@
   "liveNow": false,
   "panels": [
     {
-      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 32, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
         "code": { "language": "plaintext", "showLineNumbers": false },
@@ -50,42 +50,36 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (service_name) (rate(${namespace}_calls_total[$__rate_interval]))",
+          "expr": "label_replace(label_replace(sum by (service_name) (rate(${namespace}_calls_total[$__rate_interval])), \"id\", \"$1\", \"service_name\", \"(.*)\"), \"title\", \"$1\", \"service_name\", \"(.*)\")",
           "format": "table",
           "instant": true,
-          "refId": "service_nodes"
+          "refId": "nodes"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (service_name, peer_service) (rate(${namespace}_calls_total{peer_service!=\"\"}[$__rate_interval]))",
+          "expr": "label_replace(label_replace(sum by (service_name, peer_service) (rate(${namespace}_calls_total{peer_service!=\"\"}[$__rate_interval])), \"source\", \"$1\", \"service_name\", \"(.*)\"), \"target\", \"$1\", \"peer_service\", \"(.*)\")",
           "format": "table",
           "instant": true,
-          "refId": "service_edges"
+          "refId": "edges"
         }
       ],
       "title": "Service Dependency Graph",
       "transformations": [
         {
-          "id": "renameByRegex",
+          "filter": {
+            "id": "byRefId",
+            "options": "/^(?:edges)$/"
+          },
+          "id": "calculateField",
           "options": {
-            "regex": "Value #service_nodes",
-            "renamePattern": "mainStat"
-          }
-        },
-        {
-          "id": "renameByRegex",
-          "options": {
-            "regex": "Value #service_edges",
-            "renamePattern": "mainStat"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true },
-            "renameByName": {
-              "service_name": "id",
-              "peer_service": "target"
+            "alias": "id",
+            "mode": "reduceRow",
+            "reduce": {
+              "include": [
+                "source",
+                "target"
+              ],
+              "reducer": "sum"
             }
           }
         }

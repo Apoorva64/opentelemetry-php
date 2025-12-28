@@ -185,6 +185,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'createMenuItem',
+                'url.template' => '/v1/menu/items'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -291,9 +296,14 @@ class DefaultApi
     {
         $returnType = '\MenuApi\Model\MenuItem';
         $request = $this->createMenuItemRequest($create_menu_item_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'createMenuItem',
+                'url.template' => '/v1/menu/items'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -459,6 +469,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'getMenuHealth',
+                'url.template' => '/v1/menu/health'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -561,9 +576,14 @@ class DefaultApi
     {
         $returnType = '\MenuApi\Model\GetMenuHealth200Response';
         $request = $this->getMenuHealthRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'getMenuHealth',
+                'url.template' => '/v1/menu/health'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -717,6 +737,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'getMenuItem',
+                'url.template' => '/v1/menu/items/{id}'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -837,9 +862,14 @@ class DefaultApi
     {
         $returnType = '\MenuApi\Model\MenuItem';
         $request = $this->getMenuItemRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'getMenuItem',
+                'url.template' => '/v1/menu/items/{id}'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -1006,6 +1036,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'listMenuItems',
+                'url.template' => '/v1/menu/items'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1108,9 +1143,14 @@ class DefaultApi
     {
         $returnType = '\MenuApi\Model\ListMenuItems200Response';
         $request = $this->listMenuItemsRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'listMenuItems',
+                'url.template' => '/v1/menu/items'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -1267,6 +1307,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'updateMenuItem',
+                'url.template' => '/v1/menu/items/{id}'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1343,9 +1388,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->updateMenuItemRequest($id, $update_menu_item_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'updateMenuItem',
+                'url.template' => '/v1/menu/items/{id}'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1516,6 +1566,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'updateMenuItemAvailability',
+                'url.template' => '/v1/menu/items/{id}/availability'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1592,9 +1647,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->updateMenuItemAvailabilityRequest($id, $update_menu_item_availability_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'updateMenuItemAvailability',
+                'url.template' => '/v1/menu/items/{id}/availability'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1768,6 +1828,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'validateMenuItems',
+                'url.template' => '/v1/menu/validation'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1874,9 +1939,14 @@ class DefaultApi
     {
         $returnType = '\MenuApi\Model\ValidateMenuItems200Response';
         $request = $this->validateMenuItemsRequest($validate_menu_items_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'MenuApi',
+                'peer.operation' => 'validateMenuItems',
+                'url.template' => '/v1/menu/validation'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {

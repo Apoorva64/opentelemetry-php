@@ -151,6 +151,127 @@ $span->setAttribute('url.template', '/v1/billing/payments/{paymentIntentId}/capt
 - ✅ Regenerating clients picks up new endpoints automatically
 - ✅ **More scalable than Option 2** — each service emits its own dependency metrics locally, no need for a centralized collector to hold all spans in memory to compute the service graph. Option 2's global trace backend becomes a bottleneck as trace volume grows
 
+### Converting to OpenTelemetry Semantic Conventions
+
+Now that we have metrics being generated from spans, we use a **transform processor** to convert them to the [OpenTelemetry HTTP Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/http/http-metrics/).
+
+#### Why Convert to Semantic Conventions?
+
+The Span Metrics Connector generates metrics with names like `traces_span_metrics_calls` and `traces_span_metrics_duration`, but the OpenTelemetry standard defines specific metric names and attributes:
+
+| Span Metrics Output | OTel Standard Metric | Description |
+|--------------------|---------------------|-------------|
+| `traces_span_metrics_calls` (SERVER) | `http.server.request.count` | Count of HTTP server requests |
+| `traces_span_metrics_calls` (CLIENT) | `http.client.request.count` | Count of HTTP client requests |
+| `traces_span_metrics_duration` (SERVER) | `http.server.request.duration` | Duration histogram for server requests |
+| `traces_span_metrics_duration` (CLIENT) | `http.client.request.duration` | Duration histogram for client requests |
+
+**Attribute transformations:**
+| Span Metrics Attribute | OTel Semantic Convention | Notes |
+|----------------------|-------------------------|-------|
+| `http.method` | `http.request.method` | Renamed to match spec |
+| `peer.service` | `server.address` | Target service for client calls |
+| `status.code=ERROR` | `error.type` | Derived from status code |
+| `http.route` | `http.route` | Already compliant ✓ |
+| `http.response.status_code` | `http.response.status_code` | Already compliant ✓ |
+| `url.template` | `url.template` | Already compliant ✓ |
+
+**Benefits of using semantic conventions:**
+- ✅ **Interoperability** — Dashboards, alerts, and tooling built for OTel work out-of-the-box
+- ✅ **Vendor portability** — Switch between Prometheus, Datadog, New Relic, etc. without changing queries
+- ✅ **Community standards** — Leverage shared knowledge and best practices
+- ✅ **Future-proof** — As OTel evolves, your metrics stay compatible
+
+#### Transform Processor Configuration
+
+This project uses the OTel Collector's **transform processor** to rename metrics and attributes:
+
+```yaml
+  # Transform span metrics to OpenTelemetry HTTP Semantic Conventions
+  # See: https://opentelemetry.io/docs/specs/semconv/http/http-metrics/
+  # Using transform processor with datapoint context to separate server/client metrics
+  transform/spanmetrics:
+    metric_statements:
+      # Rename http.method -> http.request.method on all datapoints
+      - context: datapoint
+        statements:
+          - set(attributes["http.request.method"], attributes["http.method"]) where attributes["http.method"] != nil
+          - delete_key(attributes, "http.method") where attributes["http.request.method"] != nil
+      # Rename metrics based on span.kind
+      - context: metric
+        statements:
+          # Server metrics (span.kind = SPAN_KIND_SERVER)
+          - set(name, "http.server.request.count") where name == "traces_span_metrics.calls"
+          - set(name, "http.server.request.duration") where name == "traces_span_metrics.duration"
+
+  # Filter processor to create separate server metrics pipeline
+  filter/server_metrics:
+    metrics:
+      datapoint:
+        - 'attributes["span.kind"] != "SPAN_KIND_SERVER"'
+
+  # Filter processor to create separate client metrics pipeline  
+  filter/client_metrics:
+    metrics:
+      datapoint:
+        - 'attributes["span.kind"] != "SPAN_KIND_CLIENT"'
+
+  # Transform to rename client metrics
+  transform/client_metrics:
+    metric_statements:
+      - context: metric
+        statements:
+          - set(name, "http.client.request.count") where name == "http.server.request.count"
+          - set(name, "http.client.request.duration") where name == "http.server.request.duration"
+    
+  # Server metrics pipeline
+  metrics/server:
+    receivers: [spanmetrics]
+    processors: [memory_limiter, transform/spanmetrics, filter/server_metrics, batch]
+    exporters: [prometheus, prometheusremotewrite/victoriametrics]
+  
+  # Client metrics pipeline
+  metrics/client:
+    receivers: [spanmetrics]
+    processors: [memory_limiter, transform/spanmetrics, filter/client_metrics, transform/client_metrics, batch]
+    exporters: [prometheus, prometheusremotewrite/victoriametrics]
+  
+  # Other metrics (OTLP, Prometheus scrape)
+  metrics:
+    receivers: [otlp, prometheus]
+    processors: [memory_limiter, batch]
+    exporters: [prometheus, prometheusremotewrite/victoriametrics]
+```
+
+The transform processor is added to the metrics pipeline after receiving span metrics:
+
+```yaml
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp, spanmetrics, prometheus]
+      processors: [memory_limiter, transform/spanmetrics, batch]
+      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+```
+
+#### Alternative Approaches to Getting HTTP Metrics
+
+The Span Metrics Connector is just **one way** to get HTTP metrics. Other approaches include:
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Span Metrics Connector + Transform** | Zero code changes, derives from traces, can transform to standard | Requires collector-side transformation |
+| **Native OTel SDK Metrics** | Emits standard metric names directly, no transformation needed | Requires SDK instrumentation in application code |
+| **Service Mesh (Istio/Linkerd)** | Infrastructure-level, language-agnostic, often OTel-native | Adds operational complexity, only sees network traffic |
+| **APM Agent Metrics** | Often includes OTel-compatible metrics | Vendor lock-in, may require paid license |
+| **Prometheus Client Libraries** | Direct control over metric format | Manual instrumentation, separate from traces |
+
+For this project, we use the Span Metrics Connector + Transform Processor because:
+1. The PHP auto-instrumentation already generates traces
+2. We avoid modifying application code for metrics
+3. The transform processor standardizes output without code changes
+4. When PHP OTel SDK metrics support matures, we can switch to native SDK metrics
+
 | Service | Port | Database | Description |
 |---------|------|----------|-------------|
 | **MenuService** | 8000 | SQLite | Menu items, pricing, availability |
@@ -167,21 +288,30 @@ $span->setAttribute('url.template', '/v1/billing/payments/{paymentIntentId}/capt
                            │ POST /v1/orders
                            ▼
                     ┌──────────────┐
-              ┌─────│ OrderService │─────┐
-              │     └──────┬───────┘     │
-              │            │             │
-     ①validate│            │             │③payment-intent
-              ▼            │             ▼
-       ┌────────────┐      │      ┌──────────────┐
-       │MenuService │      │      │BillingService│
-       └────────────┘      │      └──────┬───────┘
-                           │             │
-                  ②reserve │             │④webhook
-                           ▼             │
-                  ┌────────────────┐     │
-                  │InventoryService│◄────┘
-                  └────────────────┘
+              ┌─────│ OrderService │◄────────────┐
+              │     └──────┬───────┘             │
+              │            │                     │
+     ①validate│            │②reserve             │④webhook (payment-captured)
+              ▼            ▼                     │
+       ┌────────────┐  ┌────────────────┐  ┌──────────────┐
+       │MenuService │  │InventoryService│  │BillingService│
+       └────────────┘  └───────▲────────┘  └──────────────┘
+                               │                 ▲
+                               │⑤commit          │③payment-intent
+                               │                 │
+                    ┌──────────┴─────────────────┘
+                    │      (after payment captured)
+              ┌─────┴──────┐
+              │OrderService│
+              └────────────┘
 ```
+
+**Order Creation Flow:**
+1. OrderService validates items with MenuService
+2. OrderService reserves ingredients with InventoryService
+3. OrderService creates payment intent with BillingService
+4. BillingService sends webhook to OrderService when payment is captured
+5. OrderService commits the reservation with InventoryService
 
 ## Quick Start (WSL)
 

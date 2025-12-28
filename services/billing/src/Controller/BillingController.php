@@ -15,6 +15,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use OpenApi\Attributes as OA;
 use OrdersApi\OrdersClient\DefaultApi as OrdersClient;
 use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\HandlerStack;
+use App\Middleware\OpenTelemetryGuzzleMiddleware;
 
 #[OA\Info(
     version: '1.0.0',
@@ -33,7 +35,9 @@ class BillingController extends AbstractController
         private PaymentIntentRepository $paymentIntentRepository,
         private RefundRepository $refundRepository,
     ) {
-        $guzzle = new GuzzleClient();
+        $stack = HandlerStack::create();
+        $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
+        $guzzle = new GuzzleClient(['handler' => $stack]);
         $ordersConfig = new \OrdersApi\Configuration();
         $ordersConfig->setHost($_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001');
         $this->ordersClient = new OrdersClient($guzzle, $ordersConfig);

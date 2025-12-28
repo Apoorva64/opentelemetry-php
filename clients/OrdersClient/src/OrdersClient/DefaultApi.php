@@ -181,6 +181,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'cancelOrder',
+                'url.template' => '/v1/orders/{id}/cancel'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -253,9 +258,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->cancelOrderRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'cancelOrder',
+                'url.template' => '/v1/orders/{id}/cancel'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -413,6 +423,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'createOrder',
+                'url.template' => '/v1/orders'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -547,9 +562,14 @@ class DefaultApi
     {
         $returnType = '\OrdersApi\Model\Order';
         $request = $this->createOrderRequest($create_order_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'createOrder',
+                'url.template' => '/v1/orders'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -719,6 +739,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'getOrder',
+                'url.template' => '/v1/orders/{id}'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -839,9 +864,14 @@ class DefaultApi
     {
         $returnType = '\OrdersApi\Model\Order';
         $request = $this->getOrderRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'getOrder',
+                'url.template' => '/v1/orders/{id}'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -1008,6 +1038,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'getOrdersHealth',
+                'url.template' => '/v1/orders/health'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1110,9 +1145,14 @@ class DefaultApi
     {
         $returnType = '\OrdersApi\Model\GetOrdersHealth200Response';
         $request = $this->getOrdersHealthRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'getOrdersHealth',
+                'url.template' => '/v1/orders/health'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -1265,6 +1305,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'orderPaymentCaptured',
+                'url.template' => '/v1/orders/{id}/events/payment-captured'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1337,9 +1382,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->orderPaymentCapturedRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'orderPaymentCaptured',
+                'url.template' => '/v1/orders/{id}/events/payment-captured'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1496,6 +1546,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'orderRefunded',
+                'url.template' => '/v1/orders/{id}/events/refunded'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1568,9 +1623,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->orderRefundedRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'OrdersApi',
+                'peer.operation' => 'orderRefunded',
+                'url.template' => '/v1/orders/{id}/events/refunded'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];

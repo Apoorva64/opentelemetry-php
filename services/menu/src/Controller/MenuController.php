@@ -13,6 +13,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use OpenApi\Attributes as OA;
 use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
 use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\HandlerStack;
+use App\Middleware\OpenTelemetryGuzzleMiddleware;
 
 #[OA\Info(
     version: '1.0.0',
@@ -30,7 +32,9 @@ class MenuController extends AbstractController
         private EntityManagerInterface $em,
         private MenuItemRepository $menuItemRepository,
     ) {
-        $guzzle = new GuzzleClient();
+        $stack = HandlerStack::create();
+        $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
+        $guzzle = new GuzzleClient(['handler' => $stack]);
         $inventoryConfig = new \InventoryApi\Configuration();
         $inventoryConfig->setHost($_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002');
         $this->inventoryClient = new InventoryClient($guzzle, $inventoryConfig);

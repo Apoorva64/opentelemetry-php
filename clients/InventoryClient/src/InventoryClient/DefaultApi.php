@@ -184,6 +184,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'commitReservation',
+                'url.template' => '/v1/inventory/reservations/{id}/commit'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -256,9 +261,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->commitReservationRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'commitReservation',
+                'url.template' => '/v1/inventory/reservations/{id}/commit'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -416,6 +426,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'createReservation',
+                'url.template' => '/v1/inventory/reservations'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -536,9 +551,14 @@ class DefaultApi
     {
         $returnType = '\InventoryApi\Model\CreateReservation201Response';
         $request = $this->createReservationRequest($create_reservation_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'createReservation',
+                'url.template' => '/v1/inventory/reservations'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -704,6 +724,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'getInventoryHealth',
+                'url.template' => '/v1/inventory/health'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -806,9 +831,14 @@ class DefaultApi
     {
         $returnType = '\InventoryApi\Model\GetInventoryHealth200Response';
         $request = $this->getInventoryHealthRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'getInventoryHealth',
+                'url.template' => '/v1/inventory/health'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -957,6 +987,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'listStock',
+                'url.template' => '/v1/inventory/stock'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1025,9 +1060,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->listStockRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'listStock',
+                'url.template' => '/v1/inventory/stock'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1167,6 +1207,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'reconcileInventory',
+                'url.template' => '/v1/inventory/reconcile'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1239,9 +1284,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->reconcileInventoryRequest($reconcile_inventory_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'reconcileInventory',
+                'url.template' => '/v1/inventory/reconcile'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1391,6 +1441,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'releaseReservation',
+                'url.template' => '/v1/inventory/reservations/{id}/release'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1463,9 +1518,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->releaseReservationRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'releaseReservation',
+                'url.template' => '/v1/inventory/reservations/{id}/release'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -1626,6 +1686,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'updateStock',
+                'url.template' => '/v1/inventory/stock/{itemId}'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1702,9 +1767,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->updateStockRequest($item_id, $update_stock_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'InventoryApi',
+                'peer.operation' => 'updateStock',
+                'url.template' => '/v1/inventory/stock/{itemId}'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];

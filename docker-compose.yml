@@ -3,7 +3,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: rms-otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: ["--config=/etc/otel-collector-config.yaml", "--feature-gates=connector.spanmetrics.useSecondAsDefaultMetricsUnit"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
@@ -153,7 +153,7 @@ services:
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/menu.db
       - INVENTORY_SERVICE_URL=http://inventory:8002
       - OTEL_PHP_AUTOLOAD_ENABLED=true
-      - OTEL_SERVICE_NAME=menu-service
+      - OTEL_SERVICE_NAME=MenuApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
       - OTEL_LOGS_EXPORTER=none
@@ -185,7 +185,7 @@ services:
       - INVENTORY_SERVICE_URL=http://inventory:8002
       - BILLING_SERVICE_URL=http://billing:8003
       - OTEL_PHP_AUTOLOAD_ENABLED=true
-      - OTEL_SERVICE_NAME=orders-service
+      - OTEL_SERVICE_NAME=OrdersApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
       - OTEL_LOGS_EXPORTER=none
@@ -223,7 +223,7 @@ services:
       - MENU_SERVICE_URL=http://menu:8000
       - ORDERS_SERVICE_URL=http://orders:8001
       - OTEL_PHP_AUTOLOAD_ENABLED=true
-      - OTEL_SERVICE_NAME=inventory-service
+      - OTEL_SERVICE_NAME=InventoryApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
       - OTEL_LOGS_EXPORTER=none
@@ -253,7 +253,7 @@ services:
       - DATABASE_URL=sqlite:///%kernel.project_dir%/var/billing.db
       - ORDERS_SERVICE_URL=http://orders:8001
       - OTEL_PHP_AUTOLOAD_ENABLED=true
-      - OTEL_SERVICE_NAME=billing-service
+      - OTEL_SERVICE_NAME=BillingApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
       - OTEL_LOGS_EXPORTER=none

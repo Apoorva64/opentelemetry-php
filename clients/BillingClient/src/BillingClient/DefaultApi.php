@@ -178,6 +178,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'capturePayment',
+                'url.template' => '/v1/billing/payments/{paymentId}/capture'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -250,9 +255,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->capturePaymentRequest($payment_id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'capturePayment',
+                'url.template' => '/v1/billing/payments/{paymentId}/capture'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -410,6 +420,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'createPaymentIntent',
+                'url.template' => '/v1/billing/payment-intents'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -516,9 +531,14 @@ class DefaultApi
     {
         $returnType = '\BillingApi\Model\CreatePaymentIntent201Response';
         $request = $this->createPaymentIntentRequest($create_payment_intent_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'createPaymentIntent',
+                'url.template' => '/v1/billing/payment-intents'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -687,6 +707,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'createRefund',
+                'url.template' => '/v1/billing/refunds'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -759,9 +784,14 @@ class DefaultApi
     {
         $returnType = '';
         $request = $this->createRefundRequest($create_refund_request, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'createRefund',
+                'url.template' => '/v1/billing/refunds'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     return [null, $response->getStatusCode(), $response->getHeaders()];
@@ -914,6 +944,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'getBillingHealth',
+                'url.template' => '/v1/billing/health'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1016,9 +1051,14 @@ class DefaultApi
     {
         $returnType = '\BillingApi\Model\GetBillingHealth200Response';
         $request = $this->getBillingHealthRequest($contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'getBillingHealth',
+                'url.template' => '/v1/billing/health'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {
@@ -1172,6 +1212,11 @@ class DefaultApi
 
         try {
             $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'getPaymentIntent',
+                'url.template' => '/v1/billing/payment-intents/{id}'
+            ];
             try {
                 $response = $this->client->send($request, $options);
             } catch (RequestException $e) {
@@ -1292,9 +1337,14 @@ class DefaultApi
     {
         $returnType = '\BillingApi\Model\PaymentIntent';
         $request = $this->getPaymentIntentRequest($id, $contentType);
-
+        $options = $this->createHttpClientOption();
+        $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'getPaymentIntent',
+                'url.template' => '/v1/billing/payment-intents/{id}'
+            ];
         return $this->client
-            ->sendAsync($request, $this->createHttpClientOption())
+            ->sendAsync($request, $options)
             ->then(
                 function ($response) use ($returnType) {
                     if (in_array($returnType, ['\SplFileObject', '\Psr\Http\Message\StreamInterface'])) {

@@ -56,7 +56,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval]))",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\" , span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))",
           "legendFormat": "RPS",
           "refId": "A"
         }
@@ -93,7 +93,7 @@
       },
       "targets": [
         {
-          "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval]))",
+          "expr": "(sum(rate(${namespace}http_server_request_count_total{span_kind=\"SPAN_KIND_SERVER\",service_name=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(${namespace}http_server_request_count_total{span_kind=\"SPAN_KIND_SERVER\",service_name=\"${service}\"}[$__rate_interval]))",
           "legendFormat": "Error Rate",
           "refId": "A"
         }
@@ -115,7 +115,7 @@
               { "color": "red", "value": 300 }
             ]
           },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 5, "w": 4, "x": 8, "y": 2 },
@@ -130,7 +130,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         }
@@ -152,7 +152,7 @@
               { "color": "red", "value": 500 }
             ]
           },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 5, "w": 4, "x": 12, "y": 2 },
@@ -167,7 +167,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p95",
           "refId": "A"
         }
@@ -189,7 +189,7 @@
               { "color": "red", "value": 1000 }
             ]
           },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 5, "w": 4, "x": 16, "y": 2 },
@@ -204,7 +204,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p99",
           "refId": "A"
         }
@@ -239,7 +239,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(${namespace}_calls_total{service_name=\"${service}\"}[24h]))",
+          "expr": "sum(increase(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[24h]))",
           "legendFormat": "Requests",
           "refId": "A"
         }
@@ -284,12 +284,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name)",
-          "legendFormat": "{{span_name}}",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
+          "legendFormat": "{{http_route}}",
           "refId": "A"
         }
       ],
-      "title": "Request Rate by Operation",
+      "title": "Request Rate by Http Route",
       "type": "timeseries"
     },
     {
@@ -318,7 +318,7 @@
           },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
@@ -329,12 +329,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le, span_name))",
-          "legendFormat": "{{span_name}}",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
+          "legendFormat": "{{http_route}}",
           "refId": "A"
         }
       ],
-      "title": "P95 Latency by Operation",
+      "title": "P95 Latency by Http Route",
       "type": "timeseries"
     },
     {
@@ -361,7 +361,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(${namespace}_calls_total{service_name=\"${service}\"}[$__range])) by (http_response_status_code)",
+          "expr": "sum(increase(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])) by (http_response_status_code)",
           "legendFormat": "HTTP {{http_response_status_code}}",
           "refId": "A"
         }
@@ -411,7 +411,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (http_response_status_code)",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_response_status_code)",
           "legendFormat": "HTTP {{http_response_status_code}}",
           "refId": "A"
         }
@@ -456,12 +456,12 @@
       },
       "targets": [
         {
-          "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (span_name) or sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name) * 0) / sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name)",
-          "legendFormat": "{{span_name}}",
+          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
+          "legendFormat": "{{http_route}}",
           "refId": "A"
         }
       ],
-      "title": "Error Rate by Operation",
+      "title": "Error Rate by Http Route",
       "type": "timeseries"
     },
     {
@@ -483,12 +483,12 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(${namespace}_calls_total{service_name=\"${service}\"}[1h])) by (span_name)",
-          "legendFormat": "{{span_name}}",
+          "expr": "sum(increase(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[1h])) by (http_route)",
+          "legendFormat": "{{http_route}}",
           "refId": "A"
         }
       ],
-      "title": "Traffic Distribution by Operation",
+      "title": "Traffic Distribution by Http Route",
       "type": "piechart"
     },
     {
@@ -512,9 +512,9 @@
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "RPS" }, "properties": [{ "id": "unit", "value": "reqps" }] },
-          { "matcher": { "id": "byName", "options": "P50" }, "properties": [{ "id": "unit", "value": "ms" }] },
-          { "matcher": { "id": "byName", "options": "P95" }, "properties": [{ "id": "unit", "value": "ms" }] },
-          { "matcher": { "id": "byName", "options": "P99" }, "properties": [{ "id": "unit", "value": "ms" }] },
+          { "matcher": { "id": "byName", "options": "P50" }, "properties": [{ "id": "unit", "value": "s" }] },
+          { "matcher": { "id": "byName", "options": "P95" }, "properties": [{ "id": "unit", "value": "s" }] },
+          { "matcher": { "id": "byName", "options": "P99" }, "properties": [{ "id": "unit", "value": "s" }] },
           { "matcher": { "id": "byName", "options": "Error Rate" }, "properties": [{ "id": "unit", "value": "percentunit" }] }
         ]
       },
@@ -527,45 +527,45 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name)",
+          "expr": "sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le, span_name))",
+          "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le, span_name))",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "C"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le, span_name))",
+          "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, http_route))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "D"
         },
         {
-          "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (span_name) or sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name) * 0) / sum(rate(${namespace}_calls_total{service_name=\"${service}\"}[$__rate_interval])) by (span_name)",
+          "expr": "(sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (http_route) or sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route) * 0) / sum(rate(${namespace}http_server_request_count_total{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (http_route)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
           "refId": "E"
         }
       ],
-      "title": "Operation Performance Table",
+      "title": "Http Route Performance Table",
       "transformations": [
         { "id": "merge", "options": {} },
-        { "id": "organize", "options": { "excludeByName": { "Time": true, "le": true }, "renameByName": { "Value #A": "RPS", "Value #B": "P50", "Value #C": "P95", "Value #D": "P99", "Value #E": "Error Rate", "span_name": "Operation" } } }
+        { "id": "organize", "options": { "excludeByName": { "Time": true, "le": true }, "renameByName": { "Value #A": "RPS", "Value #B": "P50", "Value #C": "P95", "Value #D": "P99", "Value #E": "Error Rate", "http_route": "Http Route" } } }
       ],
       "type": "table"
     },
@@ -595,7 +595,7 @@
           },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 31 },
@@ -606,22 +606,22 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.90, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.90, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p90",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p95",
           "refId": "C"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_server_request_duration_seconds_bucket{service_name=\"${service}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
           "legendFormat": "p99",
           "refId": "D"
         }
@@ -661,7 +661,7 @@
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Calls/sec" }, "properties": [{ "id": "unit", "value": "reqps" }, { "id": "decimals", "value": 2 }] },
-          { "matcher": { "id": "byName", "options": "P95 Latency" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 1 }] },
+          { "matcher": { "id": "byName", "options": "P95 Latency" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 }] },
           { "matcher": { "id": "byName", "options": "Error Rate" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 2 }] }
         ]
       },
@@ -675,21 +675,21 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (peer_service) (rate(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
+          "expr": "sum by (peer_service) (rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
           "format": "table",
           "instant": true,
           "refId": "calls"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "histogram_quantile(0.95, sum by (le, peer_service) (rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, peer_service) (rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])))",
           "format": "table",
           "instant": true,
           "refId": "latency"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "(sum by (peer_service) (rate(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\", http_response_status_code=~\"5..\"}[$__rate_interval])) or sum by (peer_service) (rate(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])) * 0) / sum by (peer_service) (rate(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
+          "expr": "(sum by (peer_service) (rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service!=\"\", http_response_status_code=~\"5..\"}[$__rate_interval])) or sum by (peer_service) (rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])) * 0) / sum by (peer_service) (rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
           "format": "table",
           "instant": true,
           "refId": "errors"
@@ -724,7 +724,7 @@
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "Calls/sec" }, "properties": [{ "id": "unit", "value": "reqps" }, { "id": "decimals", "value": 2 }] },
-          { "matcher": { "id": "byName", "options": "P95 Latency" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 1 }] },
+          { "matcher": { "id": "byName", "options": "P95 Latency" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 }] },
           { "matcher": { "id": "byName", "options": "Error Rate" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 2 }] }
         ]
       },
@@ -738,21 +738,21 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (service_name) (rate(${namespace}_calls_total{peer_service=\"${service}\"}[$__rate_interval]))",
+          "expr": "sum by (service_name) (rate(${namespace}http_client_request_count_total{peer_service=\"${service}\"}[$__rate_interval]))",
           "format": "table",
           "instant": true,
           "refId": "calls"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(${namespace}_duration_milliseconds_bucket{peer_service=\"${service}\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(${namespace}http_client_request_duration_seconds_bucket{peer_service=\"${service}\"}[$__rate_interval])))",
           "format": "table",
           "instant": true,
           "refId": "latency"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "(sum by (service_name) (rate(${namespace}_calls_total{peer_service=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or sum by (service_name) (rate(${namespace}_calls_total{peer_service=\"${service}\"}[$__rate_interval])) * 0) / sum by (service_name) (rate(${namespace}_calls_total{peer_service=\"${service}\"}[$__rate_interval]))",
+          "expr": "(sum by (service_name) (rate(${namespace}http_client_request_count_total{peer_service=\"${service}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or sum by (service_name) (rate(${namespace}http_client_request_count_total{peer_service=\"${service}\"}[$__rate_interval])) * 0) / sum by (service_name) (rate(${namespace}http_client_request_count_total{peer_service=\"${service}\"}[$__rate_interval]))",
           "format": "table",
           "instant": true,
           "refId": "errors"
@@ -803,7 +803,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by (peer_service) (rate(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
+          "expr": "sum by (peer_service) (rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval]))",
           "legendFormat": "→ {{peer_service}}",
           "refId": "A"
         }
@@ -837,7 +837,7 @@
           },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "ms"
+          "unit": "s"
         }
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 49 },
@@ -849,7 +849,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "histogram_quantile(0.95, sum by (le, peer_service) (rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, peer_service) (rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service!=\"\"}[$__rate_interval])))",
           "legendFormat": "→ {{peer_service}}",
           "refId": "A"
         }
@@ -857,6 +857,10 @@
       "title": "Outbound P95 Latency Over Time",
       "type": "timeseries"
     },
+
+
+
+
     {
       "collapsed": true,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 57 },
@@ -891,7 +895,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval]))",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval]))",
               "legendFormat": "RPS",
               "refId": "A"
             }
@@ -928,7 +932,7 @@
           },
           "targets": [
             {
-              "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval]))",
+              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval]))",
               "legendFormat": "Error Rate",
               "refId": "A"
             }
@@ -950,7 +954,7 @@
                   { "color": "red", "value": 300 }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "gridPos": { "h": 4, "w": 4, "x": 8, "y": 58 },
@@ -965,7 +969,7 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p50",
               "refId": "A"
             }
@@ -987,7 +991,7 @@
                   { "color": "red", "value": 500 }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "gridPos": { "h": 4, "w": 4, "x": 12, "y": 58 },
@@ -1002,7 +1006,7 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p95",
               "refId": "A"
             }
@@ -1024,7 +1028,7 @@
                   { "color": "red", "value": 1000 }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "gridPos": { "h": 4, "w": 4, "x": 16, "y": 58 },
@@ -1039,7 +1043,7 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p99",
               "refId": "A"
             }
@@ -1074,7 +1078,7 @@
           },
           "targets": [
             {
-              "expr": "sum(increase(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[24h]))",
+              "expr": "sum(increase(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[24h]))",
               "legendFormat": "Requests",
               "refId": "A"
             }
@@ -1119,12 +1123,12 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name)",
-              "legendFormat": "{{span_name}}",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
+              "legendFormat": "{{url_template}}",
               "refId": "A"
             }
           ],
-          "title": "Request Rate by Operation",
+          "title": "Request Rate by Http Route",
           "type": "timeseries"
         },
         {
@@ -1164,12 +1168,12 @@
           },
           "targets": [
             {
-              "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (span_name) or sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name) * 0) / sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name)",
-              "legendFormat": "{{span_name}}",
+              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
+              "legendFormat": "{{url_template}}",
               "refId": "A"
             }
           ],
-          "title": "Error Rate by Operation",
+          "title": "Error Rate by Http Route",
           "type": "timeseries"
         },
         {
@@ -1198,7 +1202,7 @@
               },
               "mappings": [],
               "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "gridPos": { "h": 8, "w": 8, "x": 16, "y": 62 },
@@ -1209,12 +1213,12 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, span_name))",
-              "legendFormat": "{{span_name}}",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
+              "legendFormat": "{{url_template}}",
               "refId": "A"
             }
           ],
-          "title": "P95 Latency by Operation",
+          "title": "P95 Latency by Http Route",
           "type": "timeseries"
         },
         {
@@ -1241,7 +1245,7 @@
           },
           "targets": [
             {
-              "expr": "sum(increase(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__range])) by (http_response_status_code)",
+              "expr": "sum(increase(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__range])) by (http_response_status_code)",
               "legendFormat": "HTTP {{http_response_status_code}}",
               "refId": "A"
             }
@@ -1291,7 +1295,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (http_response_status_code)",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (http_response_status_code)",
               "legendFormat": "HTTP {{http_response_status_code}}",
               "refId": "A"
             }
@@ -1325,7 +1329,7 @@
               },
               "mappings": [],
               "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-              "unit": "ms"
+              "unit": "s"
             }
           },
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
@@ -1336,22 +1340,22 @@
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p50",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.90, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.90, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p90",
               "refId": "B"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p95",
               "refId": "C"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
+              "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le))",
               "legendFormat": "p99",
               "refId": "D"
             }
@@ -1381,9 +1385,9 @@
             },
             "overrides": [
               { "matcher": { "id": "byName", "options": "RPS" }, "properties": [{ "id": "unit", "value": "reqps" }, { "id": "decimals", "value": 2 }] },
-              { "matcher": { "id": "byName", "options": "P50" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 1 }] },
-              { "matcher": { "id": "byName", "options": "P95" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 1 }] },
-              { "matcher": { "id": "byName", "options": "P99" }, "properties": [{ "id": "unit", "value": "ms" }, { "id": "decimals", "value": 1 }] },
+              { "matcher": { "id": "byName", "options": "P50" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 }] },
+              { "matcher": { "id": "byName", "options": "P95" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 }] },
+              { "matcher": { "id": "byName", "options": "P99" }, "properties": [{ "id": "unit", "value": "s" }, { "id": "decimals", "value": 1 }] },
               { "matcher": { "id": "byName", "options": "Error Rate" }, "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "decimals", "value": 2 }] }
             ]
           },
@@ -1396,45 +1400,45 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name)",
+              "expr": "sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
               "format": "table",
               "instant": true,
               "legendFormat": "",
               "refId": "A"
             },
             {
-              "expr": "histogram_quantile(0.50, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, span_name))",
+              "expr": "histogram_quantile(0.50, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
               "format": "table",
               "instant": true,
               "legendFormat": "",
               "refId": "B"
             },
             {
-              "expr": "histogram_quantile(0.95, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, span_name))",
+              "expr": "histogram_quantile(0.95, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
               "format": "table",
               "instant": true,
               "legendFormat": "",
               "refId": "C"
             },
             {
-              "expr": "histogram_quantile(0.99, sum(rate(${namespace}_duration_milliseconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, span_name))",
+              "expr": "histogram_quantile(0.99, sum(rate(${namespace}http_client_request_duration_seconds_bucket{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (le, url_template))",
               "format": "table",
               "instant": true,
               "legendFormat": "",
               "refId": "D"
             },
             {
-              "expr": "(sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (span_name) or sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name) * 0) / sum(rate(${namespace}_calls_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (span_name)",
+              "expr": "(sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\", http_response_status_code=~\"5..\"}[$__rate_interval])) by (url_template) or sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template) * 0) / sum(rate(${namespace}http_client_request_count_total{service_name=\"${service}\", peer_service=\"${dependency}\"}[$__rate_interval])) by (url_template)",
               "format": "table",
               "instant": true,
               "legendFormat": "",
               "refId": "E"
             }
           ],
-          "title": "Operation Performance Table",
+          "title": "Http Route Performance Table",
           "transformations": [
             { "id": "merge", "options": {} },
-            { "id": "organize", "options": { "excludeByName": { "Time": true, "le": true }, "renameByName": { "Value #A": "RPS", "Value #B": "P50", "Value #C": "P95", "Value #D": "P99", "Value #E": "Error Rate", "span_name": "Operation" } } }
+            { "id": "organize", "options": { "excludeByName": { "Time": true, "le": true }, "renameByName": { "Value #A": "RPS", "Value #B": "P50", "Value #C": "P95", "Value #D": "P99", "Value #E": "Error Rate", "url_template": "Http Route" } } }
           ],
           "type": "table"
         }
@@ -1467,31 +1471,28 @@
         "type": "datasource"
       },
       {
-        "current": { "selected": true, "text": "traces_span_metrics", "value": "traces_span_metrics" },
+        "current": { "selected": true, "text": "default", "value": "" },
         "hide": 0,
         "includeAll": false,
         "label": "Metrics Namespace",
         "multi": false,
         "name": "namespace",
         "options": [
-          { "selected": true, "text": "traces_span_metrics", "value": "traces_span_metrics" },
-          { "selected": false, "text": "spanmetrics", "value": "spanmetrics" }
         ],
-        "query": "traces_span_metrics, spanmetrics",
         "skipUrlSync": false,
         "type": "custom"
       },
       {
         "current": { "selected": false, "text": "", "value": "" },
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
-        "definition": "label_values(${namespace}_calls_total, service_name)",
+        "definition": "label_values(${namespace}http_server_request_count_total, service_name)",
         "hide": 0,
         "includeAll": false,
         "label": "Service",
         "multi": false,
         "name": "service",
         "options": [],
-        "query": { "query": "label_values(${namespace}_calls_total, service_name)", "refId": "StandardVariableQuery" },
+        "query": { "query": "label_values(${namespace}http_server_request_count_total, service_name)", "refId": "StandardVariableQuery" },
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -1501,14 +1502,14 @@
       {
         "current": { "selected": true, "text": "All", "value": "$__all" },
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
-        "definition": "label_values(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}, peer_service)",
+        "definition": "label_values(${namespace}http_server_request_count_total{service_name=\"${service}\", peer_service!=\"\"}, peer_service)",
         "hide": 2,
         "includeAll": true,
         "label": "Dependency",
         "multi": true,
         "name": "dependency",
         "options": [],
-        "query": { "query": "label_values(${namespace}_calls_total{service_name=\"${service}\", peer_service!=\"\"}, peer_service)", "refId": "DependencyQuery" },
+        "query": { "query": "label_values(${namespace}http_server_request_count_total{service_name=\"${service}\", peer_service!=\"\"}, peer_service)", "refId": "DependencyQuery" },
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,

@@ -26,18 +26,18 @@ connectors:
       explicit:
         buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s]
     dimensions:
+      # OTel HTTP semantic conventions attributes
       - name: http.method
       - name: http.response.status_code
       - name: http.route
       - name: peer.service
       - name: server.address
-      - name: db.system
-      - name: url.path
+      - name: url.template
     exemplars:
       enabled: true
     dimensions_cache_size: 1000
     aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
-    metrics_flush_interval: 15s
+    metrics_flush_interval: 1s
 
 processors:
   batch:
@@ -54,6 +54,43 @@ processors:
       - key: deployment.environment
         value: development
         action: upsert
+
+  # Transform span metrics to OpenTelemetry HTTP Semantic Conventions
+  # See: https://opentelemetry.io/docs/specs/semconv/http/http-metrics/
+  # Using transform processor with datapoint context to separate server/client metrics
+  transform/spanmetrics:
+    metric_statements:
+      # Rename http.method -> http.request.method on all datapoints
+      - context: datapoint
+        statements:
+          - set(attributes["http.request.method"], attributes["http.method"]) where attributes["http.method"] != nil
+          - delete_key(attributes, "http.method") where attributes["http.request.method"] != nil
+      # Rename metrics based on span.kind
+      - context: metric
+        statements:
+          # Server metrics (span.kind = SPAN_KIND_SERVER)
+          - set(name, "http.server.request.count") where name == "traces_span_metrics.calls"
+          - set(name, "http.server.request.duration") where name == "traces_span_metrics.duration"
+
+  # Filter processor to create separate server metrics pipeline
+  filter/server_metrics:
+    metrics:
+      datapoint:
+        - 'attributes["span.kind"] != "SPAN_KIND_SERVER"'
+
+  # Filter processor to create separate client metrics pipeline  
+  filter/client_metrics:
+    metrics:
+      datapoint:
+        - 'attributes["span.kind"] != "SPAN_KIND_CLIENT"'
+
+  # Transform to rename client metrics
+  transform/client_metrics:
+    metric_statements:
+      - context: metric
+        statements:
+          - set(name, "http.client.request.count") where name == "http.server.request.count"
+          - set(name, "http.client.request.duration") where name == "http.server.request.duration"
 
 exporters:
   otlp/jaeger:
@@ -92,7 +129,20 @@ service:
       processors: [memory_limiter, batch, resource]
       exporters: [otlp/jaeger, spanmetrics]
     
+    # Server metrics pipeline
+    metrics/server:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, transform/spanmetrics, filter/server_metrics, batch]
+      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+    
+    # Client metrics pipeline
+    metrics/client:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, transform/spanmetrics, filter/client_metrics, transform/client_metrics, batch]
+      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+    
+    # Other metrics (OTLP, Prometheus scrape)
     metrics:
-      receivers: [otlp, spanmetrics, prometheus]
+      receivers: [otlp, prometheus]
       processors: [memory_limiter, batch]
       exporters: [prometheus, prometheusremotewrite/victoriametrics]

@@ -23,7 +23,7 @@ export const options = {
         // Smoke test - verify system works
         smoke: {
             executor: 'constant-vus',
-            vus: 1,
+            vus: 20,
             duration: '30s',
             startTime: '0s',
             tags: { scenario: 'smoke' },
