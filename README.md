@@ -184,10 +184,10 @@ The Span Metrics Connector generates metrics with names like `traces_span_metric
 **Attribute transformations:**
 | Span Metrics Attribute | OTel Semantic Convention | Notes |
 |----------------------|-------------------------|-------|
-| `http.method` | `http.request.method` | Renamed to match spec |
-| `peer.service` | `server.address` | Target service for client calls |
 | `status.code=ERROR` | `error.type` | Derived from status code |
+| `peer.service` | `peer.service` | Already compliant ✓ |
 | `http.route` | `http.route` | Already compliant ✓ |
+| `http.request.method` | `http.request.method` | Already compliant ✓ |
 | `http.response.status_code` | `http.response.status_code` | Already compliant ✓ |
 | `url.template` | `url.template` | Already compliant ✓ |
 
@@ -206,11 +206,6 @@ This project uses the OTel Collector's **transform processor** to rename metrics
   # Using transform processor with datapoint context to separate server/client metrics
   transform/spanmetrics:
     metric_statements:
-      # Rename http.method -> http.request.method on all datapoints
-      - context: datapoint
-        statements:
-          - set(attributes["http.request.method"], attributes["http.method"]) where attributes["http.method"] != nil
-          - delete_key(attributes, "http.method") where attributes["http.request.method"] != nil
       # Rename metrics based on span.kind
       - context: metric
         statements:
