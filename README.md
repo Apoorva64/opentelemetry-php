@@ -340,6 +340,12 @@ A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snap
 4. BillingService sends webhook to OrderService when payment is captured
 5. OrderService commits the reservation with InventoryService
 
+## Quick Start (Docker)
+
+```bash
+docker compose --profile loadtest up --build
+```
+
 ## Quick Start (WSL)
 
 ### 1. Start all services (in separate WSL terminals)
@@ -347,18 +353,22 @@ A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snap
 ```bash
 # Terminal 1 - Menu Service (port 8000)
 cd services/menu
+composer install
 php -S localhost:8000 -t public
 
 # Terminal 2 - Orders Service (port 8001)
 cd services/orders
+composer install
 php -S localhost:8001 -t public
 
 # Terminal 3 - Inventory Service (port 8002)
 cd services/inventory
+composer install
 php -S localhost:8002 -t public
 
 # Terminal 4 - Billing Service (port 8003)
 cd services/billing
+composer install
 php -S localhost:8003 -t public
 ```
 
