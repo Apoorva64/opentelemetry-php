@@ -136,13 +136,28 @@ clients/
 └── OrdersClient/       # Generated from services/orders/openapi.json
 ```
 
-By customizing the generator templates, we can automatically inject `peer.service` and `url.template` attributes into every generated API call:
+By customizing the generator templates, we can automatically expose `peer.service` and `url.template` attributes into every generated API call:
 
 ```php
-// Auto-generated in BillingClient/src/BillingClient/PaymentsApi.php
-$span->setAttribute('peer.service', 'billing-service');
-$span->setAttribute('url.template', '/v1/billing/payments/{paymentIntentId}/capture');
+// Auto-generated in BillingClient/src/BillingClient/DefaultApi.php
+    public function createPaymentIntentWithHttpInfo(
+        \BillingApi\Model\CreatePaymentIntentRequest $create_payment_intent_request,
+        string $contentType = self::contentTypes['createPaymentIntent'][0]
+    ): array
+    {
+        $request = $this->createPaymentIntentRequest($create_payment_intent_request, $contentType);
+
+        try {
+            $options = $this->createHttpClientOption();
+            $options['otel_attributes'] = [
+                'peer.service' => 'BillingApi',
+                'peer.operation' => 'createPaymentIntent',
+                'url.template' => '/v1/billing/payment-intents'
+            ];
+            try {
+                $response = $this->client->send($request, $options);
 ```
+Then use an Interceptor to add the attributes to spans see [OpenTelemetryGuzzleMiddleware](services\menu\src\Middleware\OpenTelemetryGuzzleMiddleware.php)
 
 **Benefits of this approach:**
 - ✅ Dependency labels are consistent across all generated clients
@@ -178,7 +193,6 @@ The Span Metrics Connector generates metrics with names like `traces_span_metric
 
 **Benefits of using semantic conventions:**
 - ✅ **Interoperability** — Dashboards, alerts, and tooling built for OTel work out-of-the-box
-- ✅ **Vendor portability** — Switch between Prometheus, Datadog, New Relic, etc. without changing queries
 - ✅ **Community standards** — Leverage shared knowledge and best practices
 - ✅ **Future-proof** — As OTel evolves, your metrics stay compatible
 
@@ -224,6 +238,12 @@ This project uses the OTel Collector's **transform processor** to rename metrics
           - set(name, "http.client.request.count") where name == "http.server.request.count"
           - set(name, "http.client.request.duration") where name == "http.server.request.duration"
     
+
+```
+
+The transform processor is added to the metrics pipeline after receiving span metrics:
+
+```yaml
   # Server metrics pipeline
   metrics/server:
     receivers: [spanmetrics]
@@ -243,32 +263,19 @@ This project uses the OTel Collector's **transform processor** to rename metrics
     exporters: [prometheus, prometheusremotewrite/victoriametrics]
 ```
 
-The transform processor is added to the metrics pipeline after receiving span metrics:
-
-```yaml
-service:
-  pipelines:
-    metrics:
-      receivers: [otlp, spanmetrics, prometheus]
-      processors: [memory_limiter, transform/spanmetrics, batch]
-      exporters: [prometheus, prometheusremotewrite/victoriametrics]
-```
-
 #### Alternative Approaches to Getting HTTP Metrics
 
 The Span Metrics Connector is just **one way** to get HTTP metrics. Other approaches include:
 
 | Approach | Pros | Cons |
 |----------|------|------|
-| **Span Metrics Connector + Transform** | Zero code changes, derives from traces, can transform to standard | Requires collector-side transformation |
 | **Native OTel SDK Metrics** | Emits standard metric names directly, no transformation needed | Requires SDK instrumentation in application code |
 | **Service Mesh (Istio/Linkerd)** | Infrastructure-level, language-agnostic, often OTel-native | Adds operational complexity, only sees network traffic |
-| **APM Agent Metrics** | Often includes OTel-compatible metrics | Vendor lock-in, may require paid license |
-| **Prometheus Client Libraries** | Direct control over metric format | Manual instrumentation, separate from traces |
+| **Manual Prometheus Client Libraries** | Direct control over metric format | Manual instrumentation, separate from traces |
 
 For this project, we use the Span Metrics Connector + Transform Processor because:
 1. The PHP auto-instrumentation already generates traces
-2. We avoid modifying application code for metrics
+2. We avoid reduce the modifications application code for metrics (We still need a way to expose `peer.service` and `url.template`)
 3. The transform processor standardizes output without code changes
 4. When PHP OTel SDK metrics support matures, we can switch to native SDK metrics
 
@@ -293,6 +300,9 @@ The **Service Overview** dashboard provides a way to oversee multiple services
 ![Service Overview dashboard](docs/images/dashboard-service-overview.png)
 
 A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snapshots.raintank.io/dashboard/snapshot/Yj7I4X9CMvipuc9Mb6xKqKvD1c9zceCE)
+
+
+
 
 ## Inter-Service Call Flow
 
@@ -341,19 +351,19 @@ A snapshot of the dashboard can be found at [snapshots.raintank.io](https://snap
 
 ```bash
 # Terminal 1 - Menu Service (port 8000)
-cd /mnt/c/Users/appad/otel-php/services/menu
+cd services/menu
 php -S localhost:8000 -t public
 
 # Terminal 2 - Orders Service (port 8001)
-cd /mnt/c/Users/appad/otel-php/services/orders
+cd services/orders
 php -S localhost:8001 -t public
 
 # Terminal 3 - Inventory Service (port 8002)
-cd /mnt/c/Users/appad/otel-php/services/inventory
+cd services/inventory
 php -S localhost:8002 -t public
 
 # Terminal 4 - Billing Service (port 8003)
-cd /mnt/c/Users/appad/otel-php/services/billing
+cd services/billing
 php -S localhost:8003 -t public
 ```
 
@@ -411,8 +421,21 @@ docs/
 To reset databases for all services:
 
 ```bash
-cd /mnt/c/Users/appad/otel-php/services/menu && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
-cd /mnt/c/Users/appad/otel-php/services/orders && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
-cd /mnt/c/Users/appad/otel-php/services/inventory && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
-cd /mnt/c/Users/appad/otel-php/services/billing && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
+cd services/menu && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
+cd services/orders && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
+cd services/inventory && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
+cd services/billing && php bin/console doctrine:schema:drop --force && php bin/console doctrine:schema:create
 ```
+
+
+
+
+## TODO: LOG and traces and corrolation (WIP)
+
+### logs
+Use monolog instrumentation
+### Traces
+we already have them with the php instrumentation. But we need to find a way to query a traceid through multiple instrances to scale see [github disucussion](https://github.com/grafana/tempo/discussions/5176)
+
+### OpenApi Generation
+See if we can upstream the opentelemetry attributes to the generator
