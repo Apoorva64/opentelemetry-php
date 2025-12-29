@@ -433,7 +433,7 @@ cd services/billing && php bin/console doctrine:schema:drop --force && php bin/c
 
 
 
-## TODO: LOG and traces and corrolation (WIP)
+## TODO: Use MetricsLOG and traces and corrolation (WIP)
 
 ### logs
 Use monolog instrumentation
