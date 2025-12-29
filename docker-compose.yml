@@ -172,13 +172,12 @@ services:
       start_period: 30s
 
   menu:
-    image: nginx:alpine
+    build:
+      context: ./services/menu
+      dockerfile: docker/Dockerfile.nginx
     container_name: rms-menu
     ports:
       - "8000:80"
-    volumes:
-      - ./services/menu/docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./services/menu/public:/app/public:ro
     depends_on:
       menu-fpm:
         condition: service_started
@@ -232,13 +231,12 @@ services:
       start_period: 30s
 
   orders:
-    image: nginx:alpine
+    build:
+      context: ./services/orders
+      dockerfile: docker/Dockerfile.nginx
     container_name: rms-orders
     ports:
       - "8001:80"
-    volumes:
-      - ./services/orders/docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./services/orders/public:/app/public:ro
     depends_on:
       orders-fpm:
         condition: service_started
@@ -284,13 +282,12 @@ services:
       start_period: 30s
 
   inventory:
-    image: nginx:alpine
+    build:
+      context: ./services/inventory
+      dockerfile: docker/Dockerfile.nginx
     container_name: rms-inventory
     ports:
       - "8002:80"
-    volumes:
-      - ./services/inventory/docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./services/inventory/public:/app/public:ro
     depends_on:
       inventory-fpm:
         condition: service_started
@@ -335,13 +332,12 @@ services:
       start_period: 30s
 
   billing:
-    image: nginx:alpine
+    build:
+      context: ./services/billing
+      dockerfile: docker/Dockerfile.nginx
     container_name: rms-billing
     ports:
       - "8003:80"
-    volumes:
-      - ./services/billing/docker/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./services/billing/public:/app/public:ro
     depends_on:
       billing-fpm:
         condition: service_started

@@ -1,0 +1,9 @@
+FROM nginx:alpine
+
+# Copy nginx configuration
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+
+# Copy public files
+COPY public /app/public
+
+EXPOSE 80
