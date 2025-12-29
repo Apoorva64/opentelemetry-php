@@ -54,8 +54,6 @@ connectors:
 | `traces_spanmetrics_latency_bucket` | Histogram | **Duration** distribution (D) |
 
 **Why this approach?**
-- ✅ Zero code changes — metrics derived from existing trace instrumentation
-- ✅ Automatic dependency tracking — client spans show outbound calls
 - ✅ Consistent — same metric format across all services
 - ✅ Correlated — metrics link back to traces via exemplars
 
@@ -443,4 +441,5 @@ Use monolog instrumentation
 we already have them with the php instrumentation. But we need to find a way to query a traceid through multiple instrances to scale see [github disucussion](https://github.com/grafana/tempo/discussions/5176)
 
 ### OpenApi Generation
+
 See if we can upstream the opentelemetry attributes to the generator
