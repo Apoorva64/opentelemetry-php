@@ -1,0 +1,74 @@
+name: Integration Tests
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  integration-tests:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    services:
+      otel-collector:
+        image: otel/opentelemetry-collector-contrib:latest
+        ports:
+          - 4317:4317
+          - 4318:4318
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start services with Docker Compose
+        run: |
+          docker compose up -d billing inventory menu orders
+        env:
+          BILLING_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/billing:latest
+          INVENTORY_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/inventory:latest
+          MENU_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/menu:latest
+          ORDERS_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/orders:latest
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+          
+          # Check service health
+          for service in billing inventory menu orders; do
+            echo "Checking $service service..."
+            docker compose ps $service
+          done
+
+      - name: Run integration tests
+        run: |
+          chmod +x ./tests/integration-test.sh
+          ./tests/integration-test.sh
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          docker compose logs
+
+      - name: Stop services
+        if: always()
+        run: |
+          docker compose down -v
