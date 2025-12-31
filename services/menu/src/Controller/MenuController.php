@@ -409,4 +409,233 @@ class MenuController extends AbstractController
             'updatedAt' => $item->getUpdatedAt()->format('c'),
         ];
     }
+
+    // ============================================================================
+    // Test Error Endpoints - For observability testing
+    // ============================================================================
+
+    #[Route('/test/error/division', name: 'test_division_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/division',
+        operationId: 'testDivisionError',
+        summary: 'Test division by zero error',
+        description: 'Triggers a DivisionByZeroError for testing error tracking'
+    )]
+    #[OA\Response(response: 500, description: 'Division by zero error')]
+    public function testDivisionError(): JsonResponse
+    {
+        $a = 10;
+        $b = 0;
+        $result = intdiv($a, $b); // DivisionByZeroError
+        
+        return $this->json(['result' => $result]);
+    }
+
+    #[Route('/test/error/type', name: 'test_type_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/type',
+        operationId: 'testTypeError',
+        summary: 'Test type error',
+        description: 'Triggers a TypeError for testing error tracking'
+    )]
+    #[OA\Response(response: 500, description: 'Type error')]
+    public function testTypeError(): JsonResponse
+    {
+        $this->causeTypeError("not an array"); // @phpstan-ignore-line
+        
+        return $this->json(['status' => 'ok']);
+    }
+
+    private function causeTypeError(array $data): void
+    {
+        // This method expects an array but we pass a string
+    }
+
+    #[Route('/test/error/exception', name: 'test_exception', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/exception',
+        operationId: 'testException',
+        summary: 'Test unhandled exception',
+        description: 'Throws an unhandled RuntimeException for testing'
+    )]
+    #[OA\Response(response: 500, description: 'Runtime exception')]
+    public function testException(): JsonResponse
+    {
+        throw new \RuntimeException('This is a test exception for observability testing', 500);
+    }
+
+    #[Route('/test/error/nested-exception', name: 'test_nested_exception', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/nested-exception',
+        operationId: 'testNestedException',
+        summary: 'Test nested exception chain',
+        description: 'Throws an exception with a cause chain for testing'
+    )]
+    #[OA\Response(response: 500, description: 'Nested exception')]
+    public function testNestedException(): JsonResponse
+    {
+        try {
+            throw new \InvalidArgumentException('Root cause: invalid input', 100);
+        } catch (\InvalidArgumentException $e) {
+            try {
+                throw new \LogicException('Middle layer: business logic failed', 200, $e);
+            } catch (\LogicException $e2) {
+                throw new \RuntimeException('Top level: operation failed', 500, $e2);
+            }
+        }
+    }
+
+    #[Route('/test/error/http/{code}', name: 'test_http_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/http/{code}',
+        operationId: 'testHttpError',
+        summary: 'Test specific HTTP error code',
+        description: 'Returns the specified HTTP error code for testing'
+    )]
+    #[OA\Parameter(name: 'code', in: 'path', required: true, schema: new OA\Schema(type: 'integer', example: 404))]
+    #[OA\Response(response: 400, description: 'Bad request')]
+    #[OA\Response(response: 404, description: 'Not found')]
+    #[OA\Response(response: 500, description: 'Internal server error')]
+    #[OA\Response(response: 503, description: 'Service unavailable')]
+    public function testHttpError(int $code): JsonResponse
+    {
+        $messages = [
+            400 => 'Bad Request - Invalid input provided',
+            401 => 'Unauthorized - Authentication required',
+            403 => 'Forbidden - Access denied',
+            404 => 'Not Found - Resource does not exist',
+            409 => 'Conflict - Resource state conflict',
+            422 => 'Unprocessable Entity - Validation failed',
+            429 => 'Too Many Requests - Rate limit exceeded',
+            500 => 'Internal Server Error - Something went wrong',
+            502 => 'Bad Gateway - Upstream service error',
+            503 => 'Service Unavailable - Try again later',
+            504 => 'Gateway Timeout - Upstream timeout',
+        ];
+
+        $message = $messages[$code] ?? "HTTP Error $code";
+        
+        return $this->json([
+            'error' => [
+                'code' => $code,
+                'message' => $message,
+                'timestamp' => (new \DateTimeImmutable())->format('c'),
+            ]
+        ], $code);
+    }
+
+    #[Route('/test/error/memory', name: 'test_memory_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/memory',
+        operationId: 'testMemoryError',
+        summary: 'Test memory exhaustion (use with caution)',
+        description: 'Attempts to exhaust memory - will be caught by memory limit'
+    )]
+    #[OA\Response(response: 500, description: 'Memory exhaustion error')]
+    public function testMemoryError(): JsonResponse
+    {
+        $data = [];
+        // This will eventually hit the memory limit
+        for ($i = 0; $i < 1000000; $i++) {
+            $data[] = str_repeat('x', 10000);
+        }
+        
+        return $this->json(['count' => count($data)]);
+    }
+
+    #[Route('/test/error/timeout', name: 'test_timeout', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/timeout',
+        operationId: 'testTimeout',
+        summary: 'Test slow endpoint (simulates timeout)',
+        description: 'Sleeps for specified seconds to simulate slow response'
+    )]
+    #[OA\Parameter(name: 'seconds', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 5))]
+    #[OA\Response(response: 200, description: 'Response after delay')]
+    public function testTimeout(Request $request): JsonResponse
+    {
+        $seconds = min((int) $request->query->get('seconds', 5), 30); // Max 30 seconds
+        sleep($seconds);
+        
+        return $this->json([
+            'status' => 'completed',
+            'slept_for' => $seconds,
+        ]);
+    }
+
+    #[Route('/test/error/undefined', name: 'test_undefined_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/undefined',
+        operationId: 'testUndefinedError',
+        summary: 'Test undefined variable/property access',
+        description: 'Triggers errors from accessing undefined things'
+    )]
+    #[OA\Response(response: 500, description: 'Undefined error')]
+    public function testUndefinedError(): JsonResponse
+    {
+        $array = ['a' => 1, 'b' => 2];
+        $value = $array['nonexistent']; // Will trigger warning/error
+        
+        return $this->json(['value' => $value]);
+    }
+
+    #[Route('/test/error/database', name: 'test_database_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/database',
+        operationId: 'testDatabaseError',
+        summary: 'Test database error',
+        description: 'Triggers a database error with invalid SQL'
+    )]
+    #[OA\Response(response: 500, description: 'Database error')]
+    public function testDatabaseError(): JsonResponse
+    {
+        $conn = $this->em->getConnection();
+        // Invalid SQL to trigger database error
+        $conn->executeQuery('SELECT * FROM nonexistent_table_xyz');
+        
+        return $this->json(['status' => 'ok']);
+    }
+
+    #[Route('/test/error/downstream', name: 'test_downstream_error', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/error/downstream',
+        operationId: 'testDownstreamError',
+        summary: 'Test downstream service error',
+        description: 'Calls a non-existent downstream endpoint to test client errors'
+    )]
+    #[OA\Response(response: 500, description: 'Downstream service error')]
+    public function testDownstreamError(): JsonResponse
+    {
+        // This will fail because the endpoint doesn't exist
+        $this->inventoryClient->getIngredientById('nonexistent-id-12345');
+        
+        return $this->json(['status' => 'ok']);
+    }
+
+    #[Route('/test/log-levels', name: 'test_log_levels', methods: ['GET'])]
+    #[OA\Get(
+        path: '/v1/menu/test/log-levels',
+        operationId: 'testLogLevels',
+        summary: 'Test all log levels',
+        description: 'Emits logs at all levels for testing log aggregation'
+    )]
+    #[OA\Response(response: 200, description: 'Logs emitted at all levels')]
+    public function testLogLevels(): JsonResponse
+    {
+        $logger = $this->container->get('logger');
+        
+        $logger->debug('This is a DEBUG message', ['context' => 'test', 'level' => 'debug']);
+        $logger->info('This is an INFO message', ['context' => 'test', 'level' => 'info']);
+        $logger->notice('This is a NOTICE message', ['context' => 'test', 'level' => 'notice']);
+        $logger->warning('This is a WARNING message', ['context' => 'test', 'level' => 'warning']);
+        $logger->error('This is an ERROR message', ['context' => 'test', 'level' => 'error']);
+        $logger->critical('This is a CRITICAL message', ['context' => 'test', 'level' => 'critical']);
+        $logger->alert('This is an ALERT message', ['context' => 'test', 'level' => 'alert']);
+        
+        return $this->json([
+            'status' => 'ok',
+            'message' => 'Logs emitted at all levels',
+            'levels' => ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert'],
+        ]);
+    }
 }

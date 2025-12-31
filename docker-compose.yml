@@ -71,10 +71,30 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
     networks:
       - rms-network
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Loki for log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: rms-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - rms-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3100/ready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -157,7 +177,8 @@ services:
       - OTEL_SERVICE_NAME=MenuApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_PHP_RESOURCE_DETECTORS=container
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
@@ -209,7 +230,8 @@ services:
       - OTEL_SERVICE_NAME=OrdersApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_PHP_RESOURCE_DETECTORS=container
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
@@ -267,7 +289,8 @@ services:
       - OTEL_SERVICE_NAME=InventoryApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_PHP_RESOURCE_DETECTORS=container
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
@@ -317,7 +340,8 @@ services:
       - OTEL_SERVICE_NAME=BillingApi
       - OTEL_TRACES_EXPORTER=otlp
       - OTEL_METRICS_EXPORTER=none
-      - OTEL_LOGS_EXPORTER=none
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_PHP_RESOURCE_DETECTORS=container
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
@@ -428,6 +452,7 @@ networks:
 volumes:
   victoriametrics-data:
   grafana-data:
+  loki-data:
   menu-data:
   orders-data:
   inventory-data:

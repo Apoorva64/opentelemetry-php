@@ -24,5 +24,22 @@ services:
         arguments:
             $serviceName: 'inventory-service'
 
+    # OpenTelemetry Monolog Handler - sends logs via OTel SDK
+    otel.logs.monolog_handler:
+        class: OpenTelemetry\Contrib\Logs\Monolog\Handler
+        arguments:
+            - '@OpenTelemetry\API\Logs\LoggerProviderInterface'
+            - 'info'
+            - true
+
+    # OpenTelemetry LoggerProvider from Globals
+    OpenTelemetry\API\Logs\LoggerProviderInterface:
+        factory: ['OpenTelemetry\API\Globals', 'loggerProvider']
+
+    # OpenTelemetry Monolog Processor - adds trace context to all logs
+    App\Logging\OpenTelemetryProcessor:
+        tags:
+            - { name: monolog.processor }
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

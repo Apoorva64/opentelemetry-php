@@ -435,11 +435,89 @@ cd services/billing && php bin/console doctrine:schema:drop --force && php bin/c
 
 ## TODO: Use MetricsLOG and traces and corrolation (WIP)
 
-### logs
-Use monolog instrumentation
+### Logs with Monolog Integration
+
+The project includes **Monolog integration with OpenTelemetry** for correlated logging. All services use Symfony's MonologBundle with a custom processor that automatically adds trace context to every log entry.
+
+#### How It Works
+
+1. **MonologBundle** — Standard Symfony logging configured to output JSON to stderr (captured by Docker)
+2. **OpenTelemetryProcessor** — Custom Monolog processor that extracts the current trace/span context and adds it to log records
+3. **Auto-instrumentation** — The `open-telemetry/opentelemetry-auto-monolog` package bridges Monolog with OTel SDK
+
+#### Log Output Format
+
+Every log entry includes trace context for correlation:
+
+```json
+{
+  "message": "Order created successfully",
+  "context": {"orderId": "550e8400-e29b-41d4-a716-446655440000"},
+  "level": 200,
+  "level_name": "INFO",
+  "channel": "app",
+  "datetime": "2024-01-15T10:30:00.000000+00:00",
+  "extra": {
+    "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+    "span_id": "00f067aa0ba902b7",
+    "trace_flags": "01",
+    "service.name": "OrdersApi"
+  }
+}
+```
+
+#### Using the Logger
+
+Inject `Psr\Log\LoggerInterface` into your services:
+
+```php
+use Psr\Log\LoggerInterface;
+
+class OrderService
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function createOrder(array $data): Order
+    {
+        $this->logger->info('Creating order', ['customer' => $data['customer']]);
+        
+        // ... order creation logic ...
+        
+        $this->logger->info('Order created successfully', ['orderId' => $order->getId()]);
+        
+        return $order;
+    }
+}
+```
+
+#### Configuration Files
+
+- **Monolog config**: `config/packages/monolog.yaml` — Handlers, formatters, channels
+- **OTel Processor**: `src/Logging/OpenTelemetryProcessor.php` — Adds trace context to logs
+- **Service registration**: `config/services.yaml` — Registers processor as a Monolog processor
+
+#### Log-to-Trace Correlation
+
+The `trace_id` and `span_id` fields in logs can be used to:
+- **Jump from logs to traces** — Search for logs by trace_id in Grafana Loki, then click through to Jaeger/Tempo
+- **Jump from traces to logs** — From a trace in Jaeger, search logs with the same trace_id
+- **Aggregate logs per request** — Group all log entries from a single distributed transaction
+
+#### Dependencies Added
+
+```json
+{
+  "symfony/monolog-bundle": "^3.10",
+  "open-telemetry/opentelemetry-auto-monolog": "^0.1.0"
+}
+```
+
 ### Traces
 we already have them with the php instrumentation. But we need to find a way to query a traceid through multiple instrances to scale see [github disucussion](https://github.com/grafana/tempo/discussions/5176)
 
 ### OpenApi Generation
 
 See if we can upstream the opentelemetry attributes to the generator
+

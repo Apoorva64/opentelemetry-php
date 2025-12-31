@@ -109,6 +109,11 @@ exporters:
     tls:
       insecure: true
 
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133
@@ -141,3 +146,9 @@ service:
       receivers: [otlp, prometheus]
       processors: [memory_limiter, batch]
       exporters: [prometheus, prometheusremotewrite/victoriametrics]
+
+    # Logs pipeline - receives logs from OTLP and exports to Loki
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlphttp/loki]
