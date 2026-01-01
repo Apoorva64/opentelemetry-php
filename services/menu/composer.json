@@ -15,6 +15,35 @@
         {
             "type": "path",
             "url": "../../clients/OrdersClient"
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "open-telemetry/opentelemetry-auto-symfony",
+                "version": "dev-main",
+                "source": {
+                    "url": "https://github.com/Apoorva64/opentelemetry-php-contrib.git",
+                    "type": "git",
+                    "reference": "fix-dev"
+                },
+                "extra": {
+                    "installer-name": "opentelemetry-auto-symfony"
+                },
+                "autoload": {
+                    "psr-4": {
+                        "OpenTelemetry\\Contrib\\Instrumentation\\Symfony\\": "src/Instrumentation/Symfony/src/"
+                    },
+                    "files": [
+                        "src/Instrumentation/Symfony/_register.php"
+                    ]
+                },
+                "require": {
+                    "php": "^8.1",
+                    "open-telemetry/api": "^1.0",
+                    "open-telemetry/sdk": "^1.0",
+                    "open-telemetry/sem-conv": "^1.25"
+                }
+            }
         }
     ],
     "require": {
@@ -31,7 +60,7 @@
         "open-telemetry/opentelemetry-auto-guzzle": "^1.2",
         "open-telemetry/opentelemetry-auto-http-async": ">=1.1.1",
         "open-telemetry/opentelemetry-auto-psr18": ">=1.1.1",
-        "open-telemetry/opentelemetry-auto-symfony": "^1.1.1",
+        "open-telemetry/opentelemetry-auto-symfony": "dev-main",
         "open-telemetry/opentelemetry-logger-monolog": "^1.1.0",
         "open-telemetry/sdk": "^1.10",
         "otel-php/billing-client": "@dev",

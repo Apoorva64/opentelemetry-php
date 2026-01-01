@@ -14,11 +14,6 @@ services:
       - "55679:55679" # zpages
     networks:
       - rms-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:13133"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Jaeger for trace visualization
   jaeger:
@@ -183,6 +178,9 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
       - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
+    depends_on:
+      otel-collector:
+        condition: service_started
     networks:
       - rms-network
     healthcheck:
@@ -295,6 +293,9 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_PROPAGATORS=tracecontext,baggage
       - OTEL_RESOURCE_ATTRIBUTES=service.namespace=restaurant-management-system,deployment.environment=prod
+    depends_on:
+      otel-collector:
+        condition: service_started
     networks:
       - rms-network
     healthcheck:

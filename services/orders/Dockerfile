@@ -33,6 +33,7 @@ WORKDIR /app
 # Composer stage
 FROM base AS composer-build
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN apk add --no-cache git
 COPY services/orders/composer.json services/orders/composer.lock ./
 COPY clients/ ../clients/
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist

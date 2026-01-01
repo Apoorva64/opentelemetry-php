@@ -14,6 +14,11 @@ receivers:
           scrape_interval: 15s
           static_configs:
             - targets: ['node-exporter:9100']
+  
+  # Separate receiver for cAdvisor to apply semantic convention transforms
+  prometheus/cadvisor:
+    config:
+      scrape_configs:
         - job_name: 'cadvisor'
           scrape_interval: 15s
           static_configs:
@@ -87,6 +92,70 @@ processors:
           - set(name, "http.client.request.count") where name == "http.server.request.count"
           - set(name, "http.client.request.duration") where name == "http.server.request.duration"
 
+  # # Transform cAdvisor metrics to OpenTelemetry Semantic Conventions
+  # # See: https://opentelemetry.io/docs/specs/semconv/system/container-metrics/
+  # transform/cadvisor:
+  #   metric_statements:
+  #     # Add direction attributes BEFORE renaming metrics
+  #     - context: datapoint
+  #       statements:
+  #         # Network receive direction
+  #         - set(attributes["network.io.direction"], "receive") where metric.name == "container_network_receive_bytes_total"
+  #         # Network transmit direction
+  #         - set(attributes["network.io.direction"], "transmit") where metric.name == "container_network_transmit_bytes_total"
+  #         # Rename interface attribute to semantic convention
+  #         - set(attributes["network.interface.name"], attributes["interface"]) where attributes["interface"] != nil
+  #         - delete_key(attributes, "interface") where attributes["network.interface.name"] != nil
+          
+  #         # Disk read direction
+  #         - set(attributes["disk.io.direction"], "read") where metric.name == "container_fs_reads_bytes_total"
+  #         # Disk write direction
+  #         - set(attributes["disk.io.direction"], "write") where metric.name == "container_fs_writes_bytes_total"
+  #         # Rename device attribute to semantic convention
+  #         - set(attributes["system.device"], attributes["device"]) where attributes["device"] != nil
+  #         - delete_key(attributes, "device") where attributes["system.device"] != nil
+          
+  #         # CPU mode attributes
+  #         - set(attributes["cpu.mode"], "user") where metric.name == "container_cpu_user_seconds_total"
+  #         - set(attributes["cpu.mode"], "system") where metric.name == "container_cpu_system_seconds_total"
+      
+  #     # Rename metrics to OTel semantic conventions
+  #     - context: metric
+  #       statements:
+  #         # CPU metrics
+  #         - set(name, "container.cpu.time") where name == "container_cpu_usage_seconds_total"
+  #         - set(name, "container.cpu.time") where name == "container_cpu_user_seconds_total"
+  #         - set(name, "container.cpu.time") where name == "container_cpu_system_seconds_total"
+  #         - set(unit, "s") where name == "container.cpu.time"
+          
+  #         # Memory metrics
+  #         - set(name, "container.memory.usage") where name == "container_memory_usage_bytes"
+  #         - set(unit, "By") where name == "container.memory.usage"
+  #         - set(name, "container.memory.working_set") where name == "container_memory_working_set_bytes"
+  #         - set(unit, "By") where name == "container.memory.working_set"
+  #         - set(name, "container.memory.rss") where name == "container_memory_rss"
+  #         - set(unit, "By") where name == "container.memory.rss"
+          
+  #         # Filesystem metrics
+  #         - set(name, "container.filesystem.usage") where name == "container_fs_usage_bytes"
+  #         - set(unit, "By") where name == "container.filesystem.usage"
+  #         - set(name, "container.filesystem.capacity") where name == "container_fs_limit_bytes"
+  #         - set(unit, "By") where name == "container.filesystem.capacity"
+          
+  #         # Network I/O metrics
+  #         - set(name, "container.network.io") where name == "container_network_receive_bytes_total"
+  #         - set(name, "container.network.io") where name == "container_network_transmit_bytes_total"
+  #         - set(unit, "By") where name == "container.network.io"
+          
+  #         # Disk I/O metrics
+  #         - set(name, "container.disk.io") where name == "container_fs_reads_bytes_total"
+  #         - set(name, "container.disk.io") where name == "container_fs_writes_bytes_total"
+  #         - set(unit, "By") where name == "container.disk.io"
+          
+  #         # Uptime metric (derived from start time)
+  #         - set(name, "container.uptime") where name == "container_start_time_seconds"
+  #         - set(unit, "s") where name == "container.uptime"
+
 exporters:
   otlp/jaeger:
     endpoint: jaeger:4317
@@ -146,6 +215,13 @@ service:
       receivers: [otlp, prometheus]
       processors: [memory_limiter, batch]
       exporters: [prometheus, prometheusremotewrite/victoriametrics]
+
+    # # cAdvisor metrics pipeline with OTel Semantic Convention transforms
+    # # See: https://opentelemetry.io/docs/specs/semconv/system/container-metrics/
+    # metrics/cadvisor:
+    #   receivers: [prometheus/cadvisor]
+    #   processors: [memory_limiter, transform/cadvisor, batch]
+    #   exporters: [prometheus, prometheusremotewrite/victoriametrics]
 
     # Logs pipeline - receives logs from OTLP and exports to Loki
     logs:

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dd0aacb6f9724c429db761af140ee5b7",
+    "content-hash": "c426a0309c6f9f2dde9d26b4a0dd35e8",
     "packages": [
         {
             "name": "brick/math",
@@ -2436,70 +2436,30 @@
         },
         {
             "name": "open-telemetry/opentelemetry-auto-symfony",
-            "version": "1.1.1",
+            "version": "dev-main",
             "source": {
                 "type": "git",
-                "url": "https://github.com/opentelemetry-php/contrib-auto-symfony.git",
-                "reference": "9562c1d00e51da9f5bbf4b7be8cc244b62dfd8e7"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/opentelemetry-php/contrib-auto-symfony/zipball/9562c1d00e51da9f5bbf4b7be8cc244b62dfd8e7",
-                "reference": "9562c1d00e51da9f5bbf4b7be8cc244b62dfd8e7",
-                "shasum": ""
+                "url": "https://github.com/Apoorva64/opentelemetry-php-contrib.git",
+                "reference": "fix-dev"
             },
             "require": {
-                "ext-opentelemetry": "*",
-                "open-telemetry/api": "^1.6",
-                "open-telemetry/sem-conv": "^1.32",
-                "php": "^8.1",
-                "symfony/http-client-contracts": "*",
-                "symfony/http-kernel": "*"
-            },
-            "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3",
-                "open-telemetry/sdk": "^1.8",
-                "phan/phan": "^5.0",
-                "php-http/mock-client": "*",
-                "phpstan/phpstan": "^1.1",
-                "phpstan/phpstan-phpunit": "^1.0",
-                "phpunit/phpunit": "^9.5",
-                "psalm/plugin-phpunit": "^0.19.2",
-                "symfony/http-client": "^5.4||^6.0",
-                "symfony/messenger": "^5.4||^6.0",
-                "vimeo/psalm": "6.4.0"
-            },
-            "suggest": {
-                "open-telemetry/opentelemetry-propagation-server-timing": "Automatically propagate the context to the client through server-timing headers.",
-                "open-telemetry/opentelemetry-propagation-traceresponse": "Automatically propagate the context to the client through trace-response headers."
+                "open-telemetry/api": "^1.0",
+                "open-telemetry/sdk": "^1.0",
+                "open-telemetry/sem-conv": "^1.25",
+                "php": "^8.1"
             },
             "type": "library",
+            "extra": {
+                "installer-name": "opentelemetry-auto-symfony"
+            },
             "autoload": {
-                "files": [
-                    "_register.php"
-                ],
                 "psr-4": {
-                    "OpenTelemetry\\Contrib\\Instrumentation\\Symfony\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "Apache-2.0"
-            ],
-            "description": "OpenTelemetry auto-instrumentation for Symfony",
-            "homepage": "https://opentelemetry.io/docs/php",
-            "keywords": [
-                "instrumentation",
-                "open-telemetry",
-                "opentelemetry",
-                "otel",
-                "symfony",
-                "tracing"
-            ],
-            "support": {
-                "source": "https://github.com/opentelemetry-php/contrib-auto-symfony/tree/1.1.1"
-            },
-            "time": "2025-11-25T10:46:47+00:00"
+                    "OpenTelemetry\\Contrib\\Instrumentation\\Symfony\\": "src/Instrumentation/Symfony/src/"
+                },
+                "files": [
+                    "src/Instrumentation/Symfony/_register.php"
+                ]
+            }
         },
         {
             "name": "open-telemetry/opentelemetry-logger-monolog",
@@ -5091,16 +5051,16 @@
         },
         {
             "name": "symfony/http-foundation",
-            "version": "v8.0.1",
+            "version": "v8.0.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/http-foundation.git",
-                "reference": "3690740e2e8b19d877f20d4f10b7a489cddf0fe2"
+                "reference": "514ec3aa7982f296b0ad0825f75b6be5779ae9e7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/http-foundation/zipball/3690740e2e8b19d877f20d4f10b7a489cddf0fe2",
-                "reference": "3690740e2e8b19d877f20d4f10b7a489cddf0fe2",
+                "url": "https://api.github.com/repos/symfony/http-foundation/zipball/514ec3aa7982f296b0ad0825f75b6be5779ae9e7",
+                "reference": "514ec3aa7982f296b0ad0825f75b6be5779ae9e7",
                 "shasum": ""
             },
             "require": {
@@ -5147,7 +5107,7 @@
             "description": "Defines an object-oriented layer for the HTTP specification",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/http-foundation/tree/v8.0.1"
+                "source": "https://github.com/symfony/http-foundation/tree/v8.0.3"
             },
             "funding": [
                 {
@@ -5167,7 +5127,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-12-07T11:23:24+00:00"
+            "time": "2025-12-23T14:52:06+00:00"
         },
         {
             "name": "symfony/http-kernel",
@@ -5944,16 +5904,16 @@
         },
         {
             "name": "symfony/process",
-            "version": "v8.0.0",
+            "version": "v8.0.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/process.git",
-                "reference": "a0a750500c4ce900d69ba4e9faf16f82c10ee149"
+                "reference": "0cbbd88ec836f8757641c651bb995335846abb78"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/process/zipball/a0a750500c4ce900d69ba4e9faf16f82c10ee149",
-                "reference": "a0a750500c4ce900d69ba4e9faf16f82c10ee149",
+                "url": "https://api.github.com/repos/symfony/process/zipball/0cbbd88ec836f8757641c651bb995335846abb78",
+                "reference": "0cbbd88ec836f8757641c651bb995335846abb78",
                 "shasum": ""
             },
             "require": {
@@ -5985,7 +5945,7 @@
             "description": "Executes commands in sub-processes",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/process/tree/v8.0.0"
+                "source": "https://github.com/symfony/process/tree/v8.0.3"
             },
             "funding": [
                 {
@@ -6005,7 +5965,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-10-16T16:25:44+00:00"
+            "time": "2025-12-19T10:01:18+00:00"
         },
         {
             "name": "symfony/routing",
@@ -6966,6 +6926,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "open-telemetry/opentelemetry-auto-symfony": 20,
         "otel-php/billing-client": 20,
         "otel-php/inventory-client": 20,
         "otel-php/orders-client": 20
