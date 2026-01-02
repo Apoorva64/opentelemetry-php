@@ -274,7 +274,7 @@ For this project, we use the Span Metrics Connector + Transform Processor becaus
 
 ### Grafana Dashboards
 
-The project includes pre-configured Grafana dashboards for visualizing RED metrics and service dependencies. Access Grafana at `http://localhost:3000` when running with Docker Compose.
+The project includes pre-configured Grafana dashboards for visualizing RED metrics and service dependencies. Access Grafana at `http://localhost:9030` when running with Docker Compose.
 
 #### Service Details Dashboard (RED Metrics and Dependency Metrics)
 
