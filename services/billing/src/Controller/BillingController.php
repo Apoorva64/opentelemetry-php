@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 use OpenApi\Attributes as OA;
 use OrdersApi\OrdersClient\DefaultApi as OrdersClient;
 use GuzzleHttp\Client as GuzzleClient;
@@ -34,6 +35,7 @@ class BillingController extends AbstractController
         private EntityManagerInterface $em,
         private PaymentIntentRepository $paymentIntentRepository,
         private RefundRepository $refundRepository,
+        private LoggerInterface $logger,
     ) {
         $stack = HandlerStack::create();
         $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
@@ -41,6 +43,10 @@ class BillingController extends AbstractController
         $ordersConfig = new \OrdersApi\Configuration();
         $ordersConfig->setHost($_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001');
         $this->ordersClient = new OrdersClient($guzzle, $ordersConfig);
+        
+        $this->logger->debug('BillingController initialized', [
+            'ordersServiceUrl' => $_ENV['ORDERS_SERVICE_URL'] ?? 'http://localhost:8001'
+        ]);
     }
 
     #[Route('/health', name: 'billing_health', methods: ['GET'])]
@@ -104,10 +110,23 @@ class BillingController extends AbstractController
         $traceId = uniqid('trace_');
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
+        $this->logger->info('Creating payment intent', [
+            'route' => '/v1/billing/payment-intents',
+            'orderId' => $data['orderId'] ?? 'unknown',
+            'amount' => $data['amount'] ?? 0,
+            'currency' => $data['currency'] ?? 'USD',
+            'idempotencyKey' => $idempotencyKey,
+            'traceId' => $traceId
+        ]);
+        
         // Check for idempotent request
         if ($idempotencyKey) {
             $existing = $this->paymentIntentRepository->findByIdempotencyKey($idempotencyKey);
             if ($existing) {
+                $this->logger->info('Returning existing payment intent (idempotent)', [
+                    'paymentIntentId' => $existing->getId(),
+                    'idempotencyKey' => $idempotencyKey
+                ]);
                 return $this->json([
                     'paymentIntentId' => $existing->getId(),
                     'status' => $existing->getStatus(),
@@ -130,6 +149,14 @@ class BillingController extends AbstractController
         
         $this->em->persist($paymentIntent);
         $this->em->flush();
+        
+        $this->logger->info('Payment intent created successfully', [
+            'paymentIntentId' => $paymentIntent->getId(),
+            'orderId' => $orderId,
+            'amount' => $amount,
+            'status' => $paymentIntent->getStatus(),
+            'traceId' => $traceId
+        ]);
         
         return $this->json([
             'paymentIntentId' => $paymentIntent->getId(),
@@ -181,7 +208,10 @@ class BillingController extends AbstractController
         $paymentIntent = $this->paymentIntentRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Fetching payment intent', ['route' => '/v1/billing/payment-intents/{id}', 'paymentIntentId' => $id, 'traceId' => $traceId]);
+        
         if (!$paymentIntent) {
+            $this->logger->warning('Payment intent not found', ['paymentIntentId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'PAYMENT_INTENT_NOT_FOUND',
@@ -212,7 +242,10 @@ class BillingController extends AbstractController
         $paymentIntent = $this->paymentIntentRepository->find($paymentId);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Capturing payment', ['route' => '/v1/billing/payments/{paymentId}/capture', 'paymentIntentId' => $paymentId, 'traceId' => $traceId]);
+        
         if (!$paymentIntent) {
+            $this->logger->warning('Payment intent not found for capture', ['paymentIntentId' => $paymentId]);
             return $this->json([
                 'error' => [
                     'code' => 'PAYMENT_INTENT_NOT_FOUND',
@@ -223,6 +256,7 @@ class BillingController extends AbstractController
         }
         
         if ($paymentIntent->getStatus() === PaymentIntent::STATUS_CAPTURED) {
+            $this->logger->info('Payment already captured', ['paymentIntentId' => $paymentId]);
             return $this->json([
                 'paymentIntentId' => $paymentIntent->getId(),
                 'status' => $paymentIntent->getStatus(),
@@ -235,11 +269,25 @@ class BillingController extends AbstractController
         $paymentIntent->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
         
+        $this->logger->info('Payment captured successfully', [
+            'paymentIntentId' => $paymentId,
+            'orderId' => $paymentIntent->getOrderId(),
+            'amount' => $paymentIntent->getAmount(),
+            'traceId' => $traceId
+        ]);
+        
         // Call OrderService webhook to notify payment captured
+        $this->logger->info('Notifying order service of payment capture', [
+            'orderId' => $paymentIntent->getOrderId()
+        ]);
         try {
             $this->ordersClient->orderPaymentCaptured($paymentIntent->getOrderId());
+            $this->logger->info('Order service notified successfully');
         } catch (\Throwable $e) {
-            // Log but don't fail - payment is already captured
+            $this->logger->error('Failed to notify order service of payment capture', [
+                'orderId' => $paymentIntent->getOrderId(),
+                'error' => $e->getMessage()
+            ]);
         }
         
         return $this->json([
@@ -274,9 +322,18 @@ class BillingController extends AbstractController
         $paymentIntentId = $data['paymentIntentId'] ?? '';
         $amount = $data['amount'] ?? 0;
         
+        $this->logger->info('Creating refund', [
+            'route' => '/v1/billing/refunds',
+            'orderId' => $orderId,
+            'paymentIntentId' => $paymentIntentId,
+            'amount' => $amount,
+            'traceId' => $traceId
+        ]);
+        
         $paymentIntent = $this->paymentIntentRepository->find($paymentIntentId);
         
         if (!$paymentIntent) {
+            $this->logger->warning('Payment intent not found for refund', ['paymentIntentId' => $paymentIntentId]);
             return $this->json([
                 'error' => [
                     'code' => 'PAYMENT_INTENT_NOT_FOUND',
@@ -287,6 +344,10 @@ class BillingController extends AbstractController
         }
         
         if ($paymentIntent->getStatus() !== PaymentIntent::STATUS_CAPTURED) {
+            $this->logger->warning('Cannot refund payment - invalid status', [
+                'paymentIntentId' => $paymentIntentId,
+                'currentStatus' => $paymentIntent->getStatus()
+            ]);
             return $this->json([
                 'error' => [
                     'code' => 'REFUND_FAILED',
@@ -311,11 +372,24 @@ class BillingController extends AbstractController
         
         $this->em->flush();
         
+        $this->logger->info('Refund created successfully', [
+            'refundId' => $refund->getId(),
+            'orderId' => $orderId,
+            'paymentIntentId' => $paymentIntentId,
+            'amount' => $refund->getAmount(),
+            'traceId' => $traceId
+        ]);
+        
         // Call OrderService webhook to notify refund
+        $this->logger->info('Notifying order service of refund', ['orderId' => $orderId]);
         try {
             $this->ordersClient->orderRefunded($orderId);
+            $this->logger->info('Order service notified of refund successfully');
         } catch (\Throwable $e) {
-            // Log but don't fail
+            $this->logger->error('Failed to notify order service of refund', [
+                'orderId' => $orderId,
+                'error' => $e->getMessage()
+            ]);
         }
         
         return $this->json([

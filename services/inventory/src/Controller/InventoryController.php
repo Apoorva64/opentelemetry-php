@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 use OpenApi\Attributes as OA;
 use MenuApi\MenuClient\DefaultApi as MenuClient;
 use GuzzleHttp\Client as GuzzleClient;
@@ -34,6 +35,7 @@ class InventoryController extends AbstractController
         private EntityManagerInterface $em,
         private ReservationRepository $reservationRepository,
         private StockRepository $stockRepository,
+        private LoggerInterface $logger,
     ) {
         $stack = HandlerStack::create();
         $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
@@ -41,6 +43,10 @@ class InventoryController extends AbstractController
         $menuConfig = new \MenuApi\Configuration();
         $menuConfig->setHost($_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000');
         $this->menuClient = new MenuClient($guzzle, $menuConfig);
+        
+        $this->logger->debug('InventoryController initialized', [
+            'menuServiceUrl' => $_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000'
+        ]);
     }
 
     #[Route('/health', name: 'inventory_health', methods: ['GET'])]
@@ -141,10 +147,22 @@ class InventoryController extends AbstractController
         $traceId = uniqid('trace_');
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
+        $this->logger->info('Creating inventory reservation', [
+            'route' => '/v1/inventory/reservations',
+            'orderId' => $data['orderId'] ?? 'unknown',
+            'itemCount' => count($data['items'] ?? []),
+            'idempotencyKey' => $idempotencyKey,
+            'traceId' => $traceId
+        ]);
+        
         // Check for idempotent request
         if ($idempotencyKey) {
             $existing = $this->reservationRepository->findByIdempotencyKey($idempotencyKey);
             if ($existing) {
+                $this->logger->info('Returning existing reservation (idempotent)', [
+                    'reservationId' => $existing->getId(),
+                    'idempotencyKey' => $idempotencyKey
+                ]);
                 return $this->json([
                     'reservationId' => $existing->getId(),
                     'status' => $existing->getStatus(),
@@ -183,6 +201,12 @@ class InventoryController extends AbstractController
             }
             
             if ($stock->getAvailableQuantity() < $qty) {
+                $this->logger->warning('Insufficient stock for reservation', [
+                    'itemId' => $itemId,
+                    'requested' => $qty,
+                    'available' => $stock->getAvailableQuantity(),
+                    'traceId' => $traceId
+                ]);
                 return $this->json([
                     'error' => [
                         'code' => 'INSUFFICIENT_STOCK',
@@ -217,6 +241,14 @@ class InventoryController extends AbstractController
         $this->em->persist($reservation);
         $this->em->flush();
         
+        $this->logger->info('Reservation created successfully', [
+            'reservationId' => $reservation->getId(),
+            'orderId' => $orderId,
+            'itemCount' => count($items),
+            'expiresAt' => $reservation->getExpiresAt()->format('c'),
+            'traceId' => $traceId
+        ]);
+        
         return $this->json([
             'reservationId' => $reservation->getId(),
             'status' => $reservation->getStatus(),
@@ -236,7 +268,10 @@ class InventoryController extends AbstractController
         $reservation = $this->reservationRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Committing reservation', ['route' => '/v1/inventory/reservations/{id}/commit', 'reservationId' => $id, 'traceId' => $traceId]);
+        
         if (!$reservation) {
+            $this->logger->warning('Reservation not found for commit', ['reservationId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'RESERVATION_NOT_FOUND',
@@ -247,6 +282,10 @@ class InventoryController extends AbstractController
         }
         
         if ($reservation->getStatus() !== Reservation::STATUS_RESERVED) {
+            $this->logger->warning('Invalid reservation state for commit', [
+                'reservationId' => $id,
+                'currentStatus' => $reservation->getStatus()
+            ]);
             return $this->json([
                 'error' => [
                     'code' => 'RESERVATION_INVALID_STATE',
@@ -280,6 +319,12 @@ class InventoryController extends AbstractController
         $reservation->setStatus(Reservation::STATUS_COMMITTED);
         $this->em->flush();
         
+        $this->logger->info('Reservation committed successfully', [
+            'reservationId' => $id,
+            'orderId' => $reservation->getOrderId(),
+            'traceId' => $traceId
+        ]);
+        
         return $this->json([
             'reservationId' => $reservation->getId(),
             'status' => $reservation->getStatus(),
@@ -297,7 +342,10 @@ class InventoryController extends AbstractController
         $reservation = $this->reservationRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Releasing reservation', ['route' => '/v1/inventory/reservations/{id}/release', 'reservationId' => $id, 'traceId' => $traceId]);
+        
         if (!$reservation) {
+            $this->logger->warning('Reservation not found for release', ['reservationId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'RESERVATION_NOT_FOUND',
@@ -308,6 +356,10 @@ class InventoryController extends AbstractController
         }
         
         if ($reservation->getStatus() !== Reservation::STATUS_RESERVED) {
+            $this->logger->info('Reservation already processed', [
+                'reservationId' => $id,
+                'status' => $reservation->getStatus()
+            ]);
             return $this->json([
                 'reservationId' => $reservation->getId(),
                 'status' => $reservation->getStatus(),
@@ -338,6 +390,12 @@ class InventoryController extends AbstractController
         $reservation->setStatus(Reservation::STATUS_RELEASED);
         $this->em->flush();
         
+        $this->logger->info('Reservation released successfully', [
+            'reservationId' => $id,
+            'orderId' => $reservation->getOrderId(),
+            'traceId' => $traceId
+        ]);
+        
         return $this->json([
             'reservationId' => $reservation->getId(),
             'status' => $reservation->getStatus(),
@@ -366,6 +424,14 @@ class InventoryController extends AbstractController
         $available = $data['available'] ?? true;
         $ingredients = $data['ingredients'] ?? [];
         
+        $this->logger->info('Reconciling inventory', [
+            'route' => '/v1/inventory/reconcile',
+            'itemId' => $itemId,
+            'available' => $available,
+            'ingredientCount' => count($ingredients),
+            'traceId' => $traceId
+        ]);
+        
         // Update stock availability based on menu item status
         if ($itemId) {
             $stock = $this->stockRepository->findByItemId($itemId);
@@ -383,6 +449,13 @@ class InventoryController extends AbstractController
             }
             $stock->setUpdatedAt(new \DateTimeImmutable());
             $this->em->flush();
+            
+            $this->logger->info('Stock reconciled', [
+                'itemId' => $itemId,
+                'available' => $available,
+                'newQuantity' => $stock->getQuantity(),
+                'traceId' => $traceId
+            ]);
         }
         
         return $this->json([
@@ -397,7 +470,11 @@ class InventoryController extends AbstractController
     #[OA\Response(response: 200, description: 'Stock items list')]
     public function listStock(): JsonResponse
     {
+        $this->logger->info('Listing all stock items', ['route' => '/v1/inventory/stock']);
+        
         $stocks = $this->stockRepository->findAll();
+        
+        $this->logger->info('Stock items retrieved', ['count' => count($stocks)]);
         
         return $this->json([
             'items' => array_map(fn(Stock $s) => [
@@ -430,6 +507,13 @@ class InventoryController extends AbstractController
         $data = json_decode($request->getContent(), true);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Updating stock', [
+            'route' => '/v1/inventory/stock/{itemId}',
+            'itemId' => $itemId,
+            'quantity' => $data['quantity'] ?? null,
+            'traceId' => $traceId
+        ]);
+        
         $stock = $this->stockRepository->findByItemId($itemId);
         if (!$stock) {
             $stock = new Stock();
@@ -448,16 +532,32 @@ class InventoryController extends AbstractController
         $stock->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
         
+        $this->logger->info('Stock updated successfully', [
+            'itemId' => $itemId,
+            'quantity' => $stock->getQuantity(),
+            'availableQuantity' => $stock->getAvailableQuantity(),
+            'traceId' => $traceId
+        ]);
+        
         // Optionally notify MenuService about availability
         $available = $stock->getAvailableQuantity() > 0;
+        
+        $this->logger->info('Notifying menu service of availability change', [
+            'itemId' => $itemId,
+            'available' => $available
+        ]);
         
         try {
             $availabilityRequest = new \MenuApi\Model\UpdateMenuItemAvailabilityRequest();
             $availabilityRequest->setAvailable($available);
             
             $this->menuClient->updateMenuItemAvailability($itemId, $availabilityRequest);
+            $this->logger->info('Menu service notified successfully', ['itemId' => $itemId]);
         } catch (\Throwable $e) {
-            // Log but don't fail
+            $this->logger->error('Failed to notify menu service', [
+                'itemId' => $itemId,
+                'error' => $e->getMessage()
+            ]);
         }
         
         return $this->json([

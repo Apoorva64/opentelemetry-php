@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 use OpenApi\Attributes as OA;
 use BillingApi\BillingClient\DefaultApi as BillingClient;
 use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
@@ -34,7 +35,8 @@ class OrderController extends AbstractController
 
     public function __construct(
         private EntityManagerInterface $em,
-        private OrderRepository $orderRepository
+        private OrderRepository $orderRepository,
+        private LoggerInterface $logger,
     ) {
         $stack = HandlerStack::create();
         $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
@@ -51,6 +53,12 @@ class OrderController extends AbstractController
         $menuConfig = new \MenuApi\Configuration();
         $menuConfig->setHost($_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000');
         $this->menuClient = new MenuClient($guzzle, $menuConfig);
+        
+        $this->logger->debug('OrderController initialized', [
+            'billingServiceUrl' => $_ENV['BILLING_SERVICE_URL'] ?? 'http://localhost:8003',
+            'inventoryServiceUrl' => $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002',
+            'menuServiceUrl' => $_ENV['MENU_SERVICE_URL'] ?? 'http://localhost:8000'
+        ]);
     }
 
     #[Route('/health', name: 'orders_health', methods: ['GET'])]
@@ -160,10 +168,22 @@ class OrderController extends AbstractController
         $traceId = uniqid('trace_');
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
+        $this->logger->info('Creating new order', [
+            'route' => '/v1/orders',
+            'traceId' => $traceId,
+            'idempotencyKey' => $idempotencyKey,
+            'customerId' => $data['customer']['id'] ?? 'anonymous',
+            'itemCount' => count($data['items'] ?? [])
+        ]);
+        
         // Check for idempotent request
         if ($idempotencyKey) {
             $existing = $this->orderRepository->findByIdempotencyKey($idempotencyKey);
             if ($existing) {
+                $this->logger->info('Returning existing order (idempotent)', [
+                    'orderId' => $existing->getId(),
+                    'idempotencyKey' => $idempotencyKey
+                ]);
                 return $this->json($this->serializeOrder($existing));
             }
         }
@@ -172,6 +192,11 @@ class OrderController extends AbstractController
         $items = $data['items'] ?? [];
         
         // Step 1: Validate items with MenuService
+        $this->logger->info('Validating items with menu service', [
+            'traceId' => $traceId,
+            'itemCount' => count($items)
+        ]);
+        
         try {
             $validateRequest = new \MenuApi\Model\ValidateMenuItemsRequest();
             $validateRequest->setItems(array_map(function($item) {
@@ -185,6 +210,10 @@ class OrderController extends AbstractController
             $validationResponse = $this->menuClient->validateMenuItems($validateRequest);
             
             if (!$validationResponse->getValid()) {
+                $this->logger->warning('Menu validation failed', [
+                    'traceId' => $traceId,
+                    'items' => $validationResponse->getItems()
+                ]);
                 return $this->json([
                     'error' => [
                         'code' => 'MENU_VALIDATION_FAILED',
@@ -195,6 +224,10 @@ class OrderController extends AbstractController
                 ], Response::HTTP_BAD_REQUEST);
             }
         } catch (\Throwable $e) {
+            $this->logger->error('Menu service unavailable', [
+                'traceId' => $traceId,
+                'error' => $e->getMessage()
+            ]);
             return $this->json([
                 'error' => [
                     'code' => 'MENU_SERVICE_UNAVAILABLE',
@@ -222,6 +255,12 @@ class OrderController extends AbstractController
         $this->em->persist($order);
         $this->em->flush();
         
+        $this->logger->info('Order created, reserving inventory', [
+            'orderId' => $order->getId(),
+            'traceId' => $traceId,
+            'totalAmount' => $order->getTotalAmount()
+        ]);
+        
         // Step 2: Reserve inventory
         try {
             $reservationRequest = new \InventoryApi\Model\CreateReservationRequest();
@@ -239,7 +278,18 @@ class OrderController extends AbstractController
             
             $order->setReservationId($reservationResponse->getReservationId());
             $order->setStatus(Order::STATUS_RESERVED);
+            
+            $this->logger->info('Inventory reserved successfully', [
+                'orderId' => $order->getId(),
+                'reservationId' => $reservationResponse->getReservationId(),
+                'traceId' => $traceId
+            ]);
         } catch (\Throwable $e) {
+            $this->logger->error('Inventory reservation failed', [
+                'orderId' => $order->getId(),
+                'traceId' => $traceId,
+                'error' => $e->getMessage()
+            ]);
             $order->setStatus(Order::STATUS_CANCELED);
             $this->em->flush();
             
@@ -253,6 +303,12 @@ class OrderController extends AbstractController
         }
         
         // Step 3: Create payment intent
+        $this->logger->info('Creating payment intent', [
+            'orderId' => $order->getId(),
+            'amount' => $order->getTotalAmount(),
+            'traceId' => $traceId
+        ]);
+        
         try {
             $paymentRequest = new \BillingApi\Model\CreatePaymentIntentRequest();
             $paymentRequest->setOrderId($order->getId());
@@ -263,12 +319,31 @@ class OrderController extends AbstractController
             $paymentResponse = $this->billingClient->createPaymentIntent($paymentRequest);
             
             $order->setPaymentIntentId($paymentResponse->getPaymentIntentId());
+            
+            $this->logger->info('Payment intent created successfully', [
+                'orderId' => $order->getId(),
+                'paymentIntentId' => $paymentResponse->getPaymentIntentId(),
+                'traceId' => $traceId
+            ]);
         } catch (\Throwable $e) {
+            $this->logger->error('Payment intent creation failed', [
+                'orderId' => $order->getId(),
+                'traceId' => $traceId,
+                'error' => $e->getMessage()
+            ]);
             // Payment intent creation failed - release reservation
+            $this->logger->info('Releasing inventory reservation due to payment failure', [
+                'orderId' => $order->getId(),
+                'reservationId' => $order->getReservationId()
+            ]);
             try {
                 $this->inventoryClient->releaseReservation($order->getReservationId());
             } catch (\Throwable $releaseError) {
-                // Log but continue
+                $this->logger->error('Failed to release reservation', [
+                    'orderId' => $order->getId(),
+                    'reservationId' => $order->getReservationId(),
+                    'error' => $releaseError->getMessage()
+                ]);
             }
             
             $order->setStatus(Order::STATUS_CANCELED);
@@ -285,6 +360,13 @@ class OrderController extends AbstractController
         
         $order->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+        
+        $this->logger->info('Order created successfully', [
+            'orderId' => $order->getId(),
+            'status' => $order->getStatus(),
+            'totalAmount' => $order->getTotalAmount(),
+            'traceId' => $traceId
+        ]);
         
         return $this->json($this->serializeOrder($order), Response::HTTP_CREATED);
     }
@@ -328,9 +410,12 @@ class OrderController extends AbstractController
     )]
     public function getOrder(string $id): JsonResponse
     {
+        $this->logger->info('Fetching order', ['route' => '/v1/orders/{id}', 'orderId' => $id]);
+        
         $order = $this->orderRepository->find($id);
         
         if (!$order) {
+            $this->logger->warning('Order not found', ['orderId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ORDER_NOT_FOUND',
@@ -354,7 +439,10 @@ class OrderController extends AbstractController
         $order = $this->orderRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Canceling order', ['route' => '/v1/orders/{id}/cancel', 'orderId' => $id, 'traceId' => $traceId]);
+        
         if (!$order) {
+            $this->logger->warning('Order not found for cancellation', ['orderId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ORDER_NOT_FOUND',
@@ -365,11 +453,17 @@ class OrderController extends AbstractController
         }
         
         if ($order->getStatus() === Order::STATUS_CANCELED) {
+            $this->logger->info('Order already canceled', ['orderId' => $id]);
             return $this->json($this->serializeOrder($order));
         }
         
         // If paid, refund first
         if ($order->getStatus() === Order::STATUS_PAID && $order->getPaymentIntentId()) {
+            $this->logger->info('Processing refund for paid order', [
+                'orderId' => $id,
+                'paymentIntentId' => $order->getPaymentIntentId(),
+                'amount' => $order->getTotalAmount()
+            ]);
             try {
                 $refundRequest = new \BillingApi\Model\CreateRefundRequest();
                 $refundRequest->setOrderId($order->getId());
@@ -377,7 +471,12 @@ class OrderController extends AbstractController
                 $refundRequest->setAmount((float) $order->getTotalAmount());
                 
                 $this->billingClient->createRefund($refundRequest);
+                $this->logger->info('Refund processed successfully', ['orderId' => $id]);
             } catch (\Throwable $e) {
+                $this->logger->error('Refund failed', [
+                    'orderId' => $id,
+                    'error' => $e->getMessage()
+                ]);
                 return $this->json([
                     'error' => [
                         'code' => 'REFUND_FAILED',
@@ -390,16 +489,29 @@ class OrderController extends AbstractController
         
         // Release reservation
         if ($order->getReservationId()) {
+            $this->logger->info('Releasing inventory reservation', [
+                'orderId' => $id,
+                'reservationId' => $order->getReservationId()
+            ]);
             try {
                 $this->inventoryClient->releaseReservation($order->getReservationId());
+                $this->logger->info('Reservation released successfully', ['orderId' => $id]);
             } catch (\Throwable $e) {
-                // Log but continue
+                $this->logger->error('Failed to release reservation during cancellation', [
+                    'orderId' => $id,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
         
         $order->setStatus(Order::STATUS_CANCELED);
         $order->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+        
+        $this->logger->info('Order canceled successfully', [
+            'orderId' => $id,
+            'status' => Order::STATUS_CANCELED
+        ]);
         
         return $this->json($this->serializeOrder($order));
     }
@@ -415,7 +527,14 @@ class OrderController extends AbstractController
         $order = $this->orderRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Payment captured event received', [
+            'route' => '/v1/orders/{id}/events/payment-captured',
+            'orderId' => $id,
+            'traceId' => $traceId
+        ]);
+        
         if (!$order) {
+            $this->logger->warning('Order not found for payment captured event', ['orderId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ORDER_NOT_FOUND',
@@ -426,6 +545,11 @@ class OrderController extends AbstractController
         }
         
         if ($order->getStatus() !== Order::STATUS_RESERVED) {
+            $this->logger->warning('Order in invalid state for payment captured', [
+                'orderId' => $id,
+                'currentStatus' => $order->getStatus(),
+                'expectedStatus' => Order::STATUS_RESERVED
+            ]);
             return $this->json([
                 'error' => [
                     'code' => 'ORDER_INVALID_STATE',
@@ -437,16 +561,30 @@ class OrderController extends AbstractController
         
         // Commit inventory reservation
         if ($order->getReservationId()) {
+            $this->logger->info('Committing inventory reservation', [
+                'orderId' => $id,
+                'reservationId' => $order->getReservationId()
+            ]);
             try {
                 $this->inventoryClient->commitReservation($order->getReservationId());
+                $this->logger->info('Inventory committed successfully', ['orderId' => $id]);
             } catch (\Throwable $e) {
-                // Log but continue - payment already captured
+                $this->logger->error('Failed to commit inventory reservation', [
+                    'orderId' => $id,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
         
         $order->setStatus(Order::STATUS_PAID);
         $order->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+        
+        $this->logger->info('Order marked as paid', [
+            'orderId' => $id,
+            'status' => Order::STATUS_PAID,
+            'traceId' => $traceId
+        ]);
         
         return $this->json([
             'orderId' => $order->getId(),
@@ -465,7 +603,14 @@ class OrderController extends AbstractController
         $order = $this->orderRepository->find($id);
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Refund event received', [
+            'route' => '/v1/orders/{id}/events/refunded',
+            'orderId' => $id,
+            'traceId' => $traceId
+        ]);
+        
         if (!$order) {
+            $this->logger->warning('Order not found for refund event', ['orderId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ORDER_NOT_FOUND',
@@ -478,6 +623,11 @@ class OrderController extends AbstractController
         $order->setStatus(Order::STATUS_CANCELED);
         $order->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+        
+        $this->logger->info('Order marked as canceled due to refund', [
+            'orderId' => $id,
+            'status' => Order::STATUS_CANCELED
+        ]);
         
         return $this->json([
             'orderId' => $order->getId(),

@@ -15,101 +15,21 @@ services:
     networks:
       - rms-network
 
-  # Jaeger for trace visualization
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    container_name: rms-jaeger
+  lgtm:
+    image: grafana/otel-lgtm
+    container_name: rms-lgtm
     ports:
-      - "16686:16686" # Jaeger UI
-      - "14268:14268" # Jaeger HTTP collector
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-    networks:
-      - rms-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:16686"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # VictoriaMetrics for metrics storage
-  victoriametrics:
-    image: victoriametrics/victoria-metrics:latest
-    container_name: rms-victoriametrics
-    ports:
-      - "8428:8428"   # HTTP API and UI
-    volumes:
-      - victoriametrics-data:/victoria-metrics-data
-    command:
-      - "--storageDataPath=/victoria-metrics-data"
-      - "--httpListenAddr=:8428"
-      - "--retentionPeriod=30d"
-    networks:
-      - rms-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:8428/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Grafana for dashboards
-  grafana:
-    image: grafana/grafana:latest
-    container_name: rms-grafana
-    ports:
-      - "9030:3000"
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - ENABLE_LOGS_ALL=true
     volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    depends_on:
-      - loki
+      - ./grafana/provisioning:/otel-lgtm/grafana/conf/provisioning:ro
     networks:
       - rms-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.0:3000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Loki for log aggregation
-  loki:
-    image: grafana/loki:latest
-    container_name: rms-loki
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-    volumes:
-      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
-      - loki-data:/loki
-    networks:
-      - rms-network
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3100/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Prometheus for metrics (optional, use VictoriaMetrics instead)
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: rms-prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "9090:9090"
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
-    networks:
-      - rms-network
-    profiles:
-      - observability
 
   # Node Exporter for host USE metrics
   node-exporter:

@@ -157,31 +157,14 @@ processors:
           - set(unit, "s") where name == "container.uptime"
 
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-
   debug:
     verbosity: detailed
-
-  prometheus:
-    endpoint: 0.0.0.0:8889
-    namespace: rms
-    resource_to_telemetry_conversion:
-      enabled: true
-
-  prometheusremotewrite/victoriametrics:
-    endpoint: http://victoriametrics:8428/api/v1/write
-    resource_to_telemetry_conversion:
-      enabled: true
+  # exporter to send to LGTM
+  otlp:
+    endpoint: lgtm:4317
     tls:
       insecure: true
 
-  otlphttp/loki:
-    endpoint: http://loki:3100/otlp
-    tls:
-      insecure: true
 
 extensions:
   health_check:
@@ -196,35 +179,35 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [otlp/jaeger, spanmetrics]
+      exporters: [otlp, spanmetrics]
     
     # Server metrics pipeline
     metrics/server:
       receivers: [spanmetrics]
       processors: [memory_limiter, transform/spanmetrics, filter/server_metrics, batch]
-      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+      exporters: [otlp]
     
     # Client metrics pipeline
     metrics/client:
       receivers: [spanmetrics]
       processors: [memory_limiter, transform/spanmetrics, filter/client_metrics, transform/client_metrics, batch]
-      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+      exporters: [otlp]
     
     # Other metrics (OTLP, Prometheus scrape)
     metrics:
       receivers: [otlp, prometheus]
       processors: [memory_limiter, batch]
-      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+      exporters: [otlp]
 
     # cAdvisor metrics pipeline with OTel Semantic Convention transforms
     # See: https://opentelemetry.io/docs/specs/semconv/system/container-metrics/
     metrics/cadvisor:
       receivers: [prometheus/cadvisor]
       processors: [memory_limiter, transform/cadvisor, batch]
-      exporters: [prometheus, prometheusremotewrite/victoriametrics]
+      exporters: [otlp]
 
     # Logs pipeline - receives logs from OTLP and exports to Loki
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [otlphttp/loki]
+      exporters: [otlp]

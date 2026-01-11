@@ -1,48 +1,56 @@
 apiVersion: 1
 
 datasources:
-  - name: VictoriaMetrics
+  - name: Prometheus
     type: prometheus
-    access: proxy
-    url: http://victoriametrics:8428
-    isDefault: true
-    editable: false
+    uid: prometheus
+    url: http://127.0.0.1:9090
+    editable: true
     jsonData:
-      timeInterval: "15s"
+      timeInterval: 10s
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+          urlDisplayLabel: "Trace: $${__value.raw}"
 
-  - name: Jaeger
-    type: jaeger
-    access: proxy
-    url: http://jaeger:16686
-    editable: false
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://127.0.0.1:3200
+    editable: true
     jsonData:
       tracesToLogsV2:
-        datasourceUid: loki
-        spanStartTimeShift: "-1h"
-        spanEndTimeShift: "1h"
-        filterByTraceID: true
-        filterBySpanID: false
         customQuery: true
-        query: '{service_name="${__span.tags["service.name"]}"} | json | trace_id="${__span.traceId}"'
+        datasourceUid: "loki"
+        query: '{$${__tags}} | trace_id = "$${__trace.traceId}"'
+        tags:
+          - key: "service.name"
+            value: "service_name"
+
+      serviceMap:
+        datasourceUid: "prometheus"
+      search:
+        hide: false
+      nodeGraph:
+        enabled: true
+      lokiSearch:
+        datasourceUid: "loki"
 
   - name: Loki
     type: loki
     uid: loki
-    access: proxy
-    url: http://loki:3100
-    editable: false
+    url: http://127.0.0.1:3100
+    editable: true
     jsonData:
       derivedFields:
-        - name: TraceID
-          matcherRegex: '"trace_id":"([a-f0-9]+)"'
-          url: '$${__value.raw}'
-          datasourceUid: jaeger
-          urlDisplayLabel: View Trace
+        - name: "trace_id"
+          matcherType: "label"
+          matcherRegex: "trace_id"
+          url: "$${__value.raw}"
+          datasourceUid: "tempo"
+          urlDisplayLabel: "Trace: $${__value.raw}"
 
-  - name: OTEL Collector Metrics
-    type: prometheus
-    access: proxy
-    url: http://otel-collector:8889
-    editable: false
-    jsonData:
-      timeInterval: "15s"
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    url: http://127.0.0.1:4040

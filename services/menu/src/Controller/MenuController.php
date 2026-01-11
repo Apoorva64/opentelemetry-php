@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 use OpenApi\Attributes as OA;
 use InventoryApi\InventoryClient\DefaultApi as InventoryClient;
 use GuzzleHttp\Client as GuzzleClient;
@@ -31,6 +32,7 @@ class MenuController extends AbstractController
     public function __construct(
         private EntityManagerInterface $em,
         private MenuItemRepository $menuItemRepository,
+        private LoggerInterface $logger,
     ) {
         $stack = HandlerStack::create();
         $stack->push(new OpenTelemetryGuzzleMiddleware(), 'otel_attributes');
@@ -38,6 +40,10 @@ class MenuController extends AbstractController
         $inventoryConfig = new \InventoryApi\Configuration();
         $inventoryConfig->setHost($_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002');
         $this->inventoryClient = new InventoryClient($guzzle, $inventoryConfig);
+        
+        $this->logger->debug('MenuController initialized', [
+            'inventoryServiceUrl' => $_ENV['INVENTORY_SERVICE_URL'] ?? 'http://localhost:8002'
+        ]);
     }
 
     #[Route('/health', name: 'menu_health', methods: ['GET'])]
@@ -87,7 +93,11 @@ class MenuController extends AbstractController
     )]
     public function listItems(): JsonResponse
     {
+        $this->logger->info('Fetching available menu items', ['route' => '/v1/menu/items']);
+        
         $items = $this->menuItemRepository->findAvailable();
+        
+        $this->logger->info('Menu items retrieved', ['count' => count($items)]);
         
         return $this->json([
             'items' => array_map(fn(MenuItem $item) => $this->serializeItem($item), $items),
@@ -134,9 +144,12 @@ class MenuController extends AbstractController
     )]
     public function getItem(string $id): JsonResponse
     {
+        $this->logger->info('Fetching menu item', ['route' => '/v1/menu/items/{id}', 'itemId' => $id]);
+        
         $item = $this->menuItemRepository->find($id);
         
         if (!$item) {
+            $this->logger->warning('Menu item not found', ['itemId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ITEM_NOT_FOUND',
@@ -179,6 +192,13 @@ class MenuController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
         
+        $this->logger->info('Creating new menu item', [
+            'route' => '/v1/menu/items',
+            'name' => $data['name'] ?? 'unknown',
+            'category' => $data['category'] ?? 'main',
+            'price' => $data['price'] ?? '0.00'
+        ]);
+        
         $item = new MenuItem();
         $item->setName($data['name'] ?? '')
             ->setDescription($data['description'] ?? null)
@@ -189,6 +209,11 @@ class MenuController extends AbstractController
         
         $this->em->persist($item);
         $this->em->flush();
+        
+        $this->logger->info('Menu item created successfully', [
+            'itemId' => $item->getId(),
+            'name' => $item->getName()
+        ]);
         
         return $this->json($this->serializeItem($item), Response::HTTP_CREATED);
     }
@@ -217,9 +242,12 @@ class MenuController extends AbstractController
     #[OA\Response(response: 404, description: 'Menu item not found')]
     public function updateItem(string $id, Request $request): JsonResponse
     {
+        $this->logger->info('Updating menu item', ['route' => '/v1/menu/items/{id}', 'itemId' => $id]);
+        
         $item = $this->menuItemRepository->find($id);
         
         if (!$item) {
+            $this->logger->warning('Menu item not found for update', ['itemId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ITEM_NOT_FOUND',
@@ -240,6 +268,11 @@ class MenuController extends AbstractController
         
         $item->setUpdatedAt(new \DateTimeImmutable());
         $this->em->flush();
+        
+        $this->logger->info('Menu item updated successfully', [
+            'itemId' => $id,
+            'updatedFields' => array_keys($data)
+        ]);
         
         return $this->json($this->serializeItem($item));
     }
@@ -265,9 +298,12 @@ class MenuController extends AbstractController
     #[OA\Response(response: 404, description: 'Menu item not found')]
     public function updateAvailability(string $id, Request $request): JsonResponse
     {
+        $this->logger->info('Updating menu item availability', ['route' => '/v1/menu/items/{id}/availability', 'itemId' => $id]);
+        
         $item = $this->menuItemRepository->find($id);
         
         if (!$item) {
+            $this->logger->warning('Menu item not found for availability update', ['itemId' => $id]);
             return $this->json([
                 'error' => [
                     'code' => 'ITEM_NOT_FOUND',
@@ -285,12 +321,26 @@ class MenuController extends AbstractController
         $this->em->flush();
         
         // Call InventoryService to reconcile availability
+        $this->logger->info('Calling inventory service to reconcile availability', [
+            'itemId' => $id,
+            'available' => $available
+        ]);
+        
         $reconcileRequest = new \InventoryApi\Model\ReconcileInventoryRequest();
         $reconcileRequest->setItemId($id);
         $reconcileRequest->setAvailable($available);
         $reconcileRequest->setIngredients($item->getIngredients());
         
-        $this->inventoryClient->reconcileInventory($reconcileRequest);
+        try {
+            $this->inventoryClient->reconcileInventory($reconcileRequest);
+            $this->logger->info('Inventory reconciliation successful', ['itemId' => $id]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Inventory reconciliation failed', [
+                'itemId' => $id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
         
         return $this->json([
             'itemId' => $id,
@@ -345,6 +395,12 @@ class MenuController extends AbstractController
         $requestedItems = $data['items'] ?? [];
         $traceId = uniqid('trace_');
         
+        $this->logger->info('Validating menu items', [
+            'route' => '/v1/menu/validation',
+            'itemCount' => count($requestedItems),
+            'traceId' => $traceId
+        ]);
+        
         $itemIds = array_column($requestedItems, 'itemId');
         $menuItems = $this->menuItemRepository->findByIds($itemIds);
         $menuItemsById = [];
@@ -387,6 +443,12 @@ class MenuController extends AbstractController
                 'error' => !$isAvailable ? 'ITEM_UNAVAILABLE' : (!$priceMatches ? 'PRICE_MISMATCH' : null),
             ];
         }
+        
+        $this->logger->info('Menu validation completed', [
+            'valid' => $allValid,
+            'itemCount' => count($validatedItems),
+            'traceId' => $traceId
+        ]);
         
         return $this->json([
             'valid' => $allValid,
