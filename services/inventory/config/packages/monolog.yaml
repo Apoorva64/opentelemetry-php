@@ -11,6 +11,9 @@ monolog:
             id: otel.logs.monolog_handler
             level: info
             channels: ["!event", "!doctrine"]
+            process_psr_3_messages:
+                enabled: true
+                date_format: 'Y-m-d\TH:i:s.uP'
 
         # Fallback handler that outputs to stderr (captured by Docker)
         main:

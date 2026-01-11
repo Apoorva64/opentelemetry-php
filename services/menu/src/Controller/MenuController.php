@@ -93,7 +93,7 @@ class MenuController extends AbstractController
     )]
     public function listItems(): JsonResponse
     {
-        $this->logger->info('Fetching available menu items', ['route' => '/v1/menu/items']);
+        $this->logger->info('Fetching available menu items');
         
         $items = $this->menuItemRepository->findAvailable();
         
@@ -144,7 +144,7 @@ class MenuController extends AbstractController
     )]
     public function getItem(string $id): JsonResponse
     {
-        $this->logger->info('Fetching menu item', ['route' => '/v1/menu/items/{id}', 'itemId' => $id]);
+        $this->logger->info('Fetching menu item', ['itemId' => $id]);
         
         $item = $this->menuItemRepository->find($id);
         
@@ -193,7 +193,6 @@ class MenuController extends AbstractController
         $data = json_decode($request->getContent(), true);
         
         $this->logger->info('Creating new menu item', [
-            'route' => '/v1/menu/items',
             'name' => $data['name'] ?? 'unknown',
             'category' => $data['category'] ?? 'main',
             'price' => $data['price'] ?? '0.00'
@@ -242,7 +241,7 @@ class MenuController extends AbstractController
     #[OA\Response(response: 404, description: 'Menu item not found')]
     public function updateItem(string $id, Request $request): JsonResponse
     {
-        $this->logger->info('Updating menu item', ['route' => '/v1/menu/items/{id}', 'itemId' => $id]);
+        $this->logger->info('Updating menu item', ['itemId' => $id]);
         
         $item = $this->menuItemRepository->find($id);
         
@@ -298,7 +297,7 @@ class MenuController extends AbstractController
     #[OA\Response(response: 404, description: 'Menu item not found')]
     public function updateAvailability(string $id, Request $request): JsonResponse
     {
-        $this->logger->info('Updating menu item availability', ['route' => '/v1/menu/items/{id}/availability', 'itemId' => $id]);
+        $this->logger->info('Updating menu item availability', ['itemId' => $id]);
         
         $item = $this->menuItemRepository->find($id);
         
@@ -396,7 +395,6 @@ class MenuController extends AbstractController
         $traceId = uniqid('trace_');
         
         $this->logger->info('Validating menu items', [
-            'route' => '/v1/menu/validation',
             'itemCount' => count($requestedItems),
             'traceId' => $traceId
         ]);

@@ -148,7 +148,6 @@ class InventoryController extends AbstractController
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
         $this->logger->info('Creating inventory reservation', [
-            'route' => '/v1/inventory/reservations',
             'orderId' => $data['orderId'] ?? 'unknown',
             'itemCount' => count($data['items'] ?? []),
             'idempotencyKey' => $idempotencyKey,
@@ -268,7 +267,7 @@ class InventoryController extends AbstractController
         $reservation = $this->reservationRepository->find($id);
         $traceId = uniqid('trace_');
         
-        $this->logger->info('Committing reservation', ['route' => '/v1/inventory/reservations/{id}/commit', 'reservationId' => $id, 'traceId' => $traceId]);
+        $this->logger->info('Committing reservation', ['reservationId' => $id, 'traceId' => $traceId]);
         
         if (!$reservation) {
             $this->logger->warning('Reservation not found for commit', ['reservationId' => $id]);
@@ -342,7 +341,7 @@ class InventoryController extends AbstractController
         $reservation = $this->reservationRepository->find($id);
         $traceId = uniqid('trace_');
         
-        $this->logger->info('Releasing reservation', ['route' => '/v1/inventory/reservations/{id}/release', 'reservationId' => $id, 'traceId' => $traceId]);
+        $this->logger->info('Releasing reservation', ['reservationId' => $id, 'traceId' => $traceId]);
         
         if (!$reservation) {
             $this->logger->warning('Reservation not found for release', ['reservationId' => $id]);
@@ -425,7 +424,6 @@ class InventoryController extends AbstractController
         $ingredients = $data['ingredients'] ?? [];
         
         $this->logger->info('Reconciling inventory', [
-            'route' => '/v1/inventory/reconcile',
             'itemId' => $itemId,
             'available' => $available,
             'ingredientCount' => count($ingredients),
@@ -470,7 +468,7 @@ class InventoryController extends AbstractController
     #[OA\Response(response: 200, description: 'Stock items list')]
     public function listStock(): JsonResponse
     {
-        $this->logger->info('Listing all stock items', ['route' => '/v1/inventory/stock']);
+        $this->logger->info('Listing all stock items');
         
         $stocks = $this->stockRepository->findAll();
         
@@ -508,7 +506,6 @@ class InventoryController extends AbstractController
         $traceId = uniqid('trace_');
         
         $this->logger->info('Updating stock', [
-            'route' => '/v1/inventory/stock/{itemId}',
             'itemId' => $itemId,
             'quantity' => $data['quantity'] ?? null,
             'traceId' => $traceId

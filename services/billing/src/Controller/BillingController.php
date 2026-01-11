@@ -111,7 +111,6 @@ class BillingController extends AbstractController
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
         $this->logger->info('Creating payment intent', [
-            'route' => '/v1/billing/payment-intents',
             'orderId' => $data['orderId'] ?? 'unknown',
             'amount' => $data['amount'] ?? 0,
             'currency' => $data['currency'] ?? 'USD',
@@ -208,7 +207,7 @@ class BillingController extends AbstractController
         $paymentIntent = $this->paymentIntentRepository->find($id);
         $traceId = uniqid('trace_');
         
-        $this->logger->info('Fetching payment intent', ['route' => '/v1/billing/payment-intents/{id}', 'paymentIntentId' => $id, 'traceId' => $traceId]);
+        $this->logger->info('Fetching payment intent', ['paymentIntentId' => $id, 'traceId' => $traceId]);
         
         if (!$paymentIntent) {
             $this->logger->warning('Payment intent not found', ['paymentIntentId' => $id]);
@@ -242,7 +241,7 @@ class BillingController extends AbstractController
         $paymentIntent = $this->paymentIntentRepository->find($paymentId);
         $traceId = uniqid('trace_');
         
-        $this->logger->info('Capturing payment', ['route' => '/v1/billing/payments/{paymentId}/capture', 'paymentIntentId' => $paymentId, 'traceId' => $traceId]);
+        $this->logger->info('Capturing payment', ['paymentIntentId' => $paymentId, 'traceId' => $traceId]);
         
         if (!$paymentIntent) {
             $this->logger->warning('Payment intent not found for capture', ['paymentIntentId' => $paymentId]);
@@ -323,7 +322,6 @@ class BillingController extends AbstractController
         $amount = $data['amount'] ?? 0;
         
         $this->logger->info('Creating refund', [
-            'route' => '/v1/billing/refunds',
             'orderId' => $orderId,
             'paymentIntentId' => $paymentIntentId,
             'amount' => $amount,

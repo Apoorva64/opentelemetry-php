@@ -27,8 +27,23 @@ class OpenTelemetryProcessor implements ProcessorInterface
         $span = Span::fromContext(Context::getCurrent());
         $spanContext = $span->getContext();
         
+        // Interpolate PSR-3 placeholders like {route} with values from context
+        $message = $record->message;
+        $context = $record->context;
+        if (!empty($context)) {
+            $replacements = [];
+            foreach ($context as $key => $value) {
+                if (is_string($value) || is_numeric($value) || (is_object($value) && method_exists($value, '__toString'))) {
+                    $replacements['{' . $key . '}'] = (string) $value;
+                }
+            }
+            if (!empty($replacements)) {
+                $message = strtr($message, $replacements);
+            }
+        }
+        
         if (!$spanContext->isValid()) {
-            return $record;
+            return $record->with(message: $message);
         }
 
         $extra = $record->extra;
@@ -42,6 +57,6 @@ class OpenTelemetryProcessor implements ProcessorInterface
             $extra['service.name'] = $serviceName;
         }
 
-        return $record->with(extra: $extra);
+        return $record->with(message: $message, extra: $extra);
     }
 }

@@ -169,7 +169,6 @@ class OrderController extends AbstractController
         $idempotencyKey = $data['idempotencyKey'] ?? null;
         
         $this->logger->info('Creating new order', [
-            'route' => '/v1/orders',
             'traceId' => $traceId,
             'idempotencyKey' => $idempotencyKey,
             'customerId' => $data['customer']['id'] ?? 'anonymous',
@@ -410,7 +409,7 @@ class OrderController extends AbstractController
     )]
     public function getOrder(string $id): JsonResponse
     {
-        $this->logger->info('Fetching order', ['route' => '/v1/orders/{id}', 'orderId' => $id]);
+        $this->logger->info('Fetching order', ['orderId' => $id]);
         
         $order = $this->orderRepository->find($id);
         
@@ -439,7 +438,7 @@ class OrderController extends AbstractController
         $order = $this->orderRepository->find($id);
         $traceId = uniqid('trace_');
         
-        $this->logger->info('Canceling order', ['route' => '/v1/orders/{id}/cancel', 'orderId' => $id, 'traceId' => $traceId]);
+        $this->logger->info('Canceling order', ['orderId' => $id, 'traceId' => $traceId]);
         
         if (!$order) {
             $this->logger->warning('Order not found for cancellation', ['orderId' => $id]);
@@ -528,7 +527,6 @@ class OrderController extends AbstractController
         $traceId = uniqid('trace_');
         
         $this->logger->info('Payment captured event received', [
-            'route' => '/v1/orders/{id}/events/payment-captured',
             'orderId' => $id,
             'traceId' => $traceId
         ]);
@@ -604,7 +602,6 @@ class OrderController extends AbstractController
         $traceId = uniqid('trace_');
         
         $this->logger->info('Refund event received', [
-            'route' => '/v1/orders/{id}/events/refunded',
             'orderId' => $id,
             'traceId' => $traceId
         ]);
